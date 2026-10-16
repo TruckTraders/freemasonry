@@ -597,7 +597,7 @@ const DEFAULT_EVENTS = [
   {id:"e3",n:800,title:"Fish fry fundraiser",type:"Social",date:"2026-11-07",time:"11:00",vis:"public",notes:"Families welcome.",sample:true},
   {id:"e4",n:1354,title:"Officers' planning meeting",type:"Business",date:"2026-11-17",time:"18:30",vis:"members",notes:"",sample:true}
 ];
-for(const p of Object.values(DEFAULT_PROFILES)){p.bodies=p.bodies||[];p.sample=!p.real}
+for(const p of Object.values(DEFAULT_PROFILES)){p.bodies=p.bodies||[];p.sample=!p.real;if(p.sample&&!/^TEST /.test(p.name))p.name="TEST "+p.name}
 const TYPES=["Degree","Education","Social","Business","Practice","Official visit","Other"];
 const typeClass=t=>t==="Stated meeting"?"t-stated":t==="Degree"||t==="Practice"?"t-degree":t==="Social"?"t-social":"t-other";
 
@@ -697,7 +697,7 @@ const isMember=l=>signedIn()&&myLodges().includes(l.n);
 const canSeePrivate=l=>(isMember(l)&&can("membersArea"))||can("editAnyLodge");
 const following=l=>isMember(l)||(S.follows[S.user]||[]).includes(l.n);
 const lname=l=>l.gl?l.name:`${l.name} No. ${l.n}`;
-const initials=n=>n.split(/\s+/).map(w=>w[0]).slice(0,2).join("").toUpperCase();
+const initials=n=>n.replace(/^TEST\s+/,"").split(/\s+/).map(w=>w[0]).slice(0,2).join("").toUpperCase();
 function fmtTime(t){if(!t)return"";let[h,m]=t.split(":").map(Number);const ap=h>=12?"PM":"AM";h=h%12||12;return`${h}:${pad(m)} ${ap}`}
 const MONTHS=["January","February","March","April","May","June","July","August","September","October","November","December"];
 const DOWS=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
@@ -750,7 +750,7 @@ function loginView(){
     <button class="btn" type="button" data-act="signin" id="login-btn">Login</button>
     <p class="hint">Just click Login for now. Real username and password sign-in comes with member accounts.</p></div>`;
 }
-function renderSwitcher(){document.getElementById("viewas").innerHTML=USERS.filter(u=>u.role).map(u=>`<option value="${u.id}" ${u.id===S.user?"selected":""}>${esc(u.label)}</option>`).join("")}
+function renderSwitcher(){document.getElementById("viewas").innerHTML=USERS.filter(u=>u.role).map(u=>`<option value="${u.id}" ${u.id===S.user?"selected":""}>${esc(u.label)}${S.profiles[u.profile]&&S.profiles[u.profile].sample?" (test person)":""}</option>`).join("")}
 function tabs(){
   const adm=can("manageRoles")||can("editAnyLodge"),pr=!!myProfile(),un=totalUnread();
   const T=[
@@ -781,6 +781,7 @@ function goTo(go){
   if(tab==="res"){S.tab="res";render();const el=document.getElementById("res-"+sub);if(el)el.scrollIntoView({block:"start"});else scrollTo(0,0);return}
 }
 function settleFirstClaims(){
+  Object.values(S.profiles).forEach(p=>{if(p.sample&&!/^TEST /.test(p.name))p.name="TEST "+p.name});
   realProfiles().forEach(([,p])=>p.lodges.forEach(x=>{if(x.pending&&x.n&&!hasRealAuth("l:"+x.n)){delete x.pending;x.since=x.since||String(new Date().getFullYear());x.approvedBy="first claim";x.approvedAt=new Date().toISOString()}}))}
 function render(){
   settleFirstClaims();L=lodges(); renderSwitcher(); renderAcct();
