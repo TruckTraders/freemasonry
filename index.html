@@ -1587,6 +1587,7 @@ function feedView(){
   const atB=S.feedFilter.startsWith("ab:")?entById(S.feedFilter.slice(3)):null;
   const atD=S.feedFilter.startsWith("ad:")?S.feedFilter.slice(3):null;
   if(S.feedFilter!=="all"&&!atL&&!atB&&!atD) S.feedFilter="all";
+  if(S.postToFor!==S.feedFilter){S.postToFor=S.feedFilter;const fk=atL?(atL.n===0?"gl":"l:"+atL.n):atD?"d:"+atD:atB?(atB.lvl==="orient"?"or":(atB.lvl==="valley"?"v:":"a:")+atB.id):"";if(fk&&can_.some(b=>bKey(b)===fk))S.postTo=fk}
   const shown=atD?visible.filter(p=>p.board.t==="district"&&p.board.id===atD):atB?visible.filter(p=>postReachesEnt(p,atB)):atL?visible.filter(p=>postReachesLodge(p,atL)):S.feedBoards?visible.filter(p=>S.feedBoards.includes(bKey(p.board))):visible;
   const grp=(t,label)=>{const g=can_.filter(b=>b.t===t);return g.length?`<optgroup label="${label}">${g.map(b=>`<option value="${bKey(b)}" ${bKey(b)===S.postTo?"selected":""}>${esc(bName(b))}</option>`).join("")}</optgroup>`:""};
   return `<div class="stack" style="max-width:680px">
@@ -1906,7 +1907,12 @@ document.addEventListener("change",e=>{
   if(t.id==="post-photos"){const fs=[...t.files];t.value="";(async()=>{for(const f of fs){if(DRAFT.pics.length>=6){toast("Up to 6 photos per post");break}try{DRAFT.pics.push(await readPhoto(f))}catch(e){toast("That file isn't an image I can read")}}refreshAttach()})();return}
   if(t.id==="post-files"){const f=t.files[0];t.value="";if(!f)return;if(f.size>400*1024){toast("Files in the demo are limited to 400 KB");return}if(DRAFT.files.length>=3){toast("Up to 3 files per post");return}const r=new FileReader();r.onload=()=>{DRAFT.files.push({name:f.name,size:f.size,url:r.result});refreshAttach()};r.readAsDataURL(f);return}
   if(t.id==="post-to"){S.postTo=t.value;const r=document.getElementById("post-reach");if(r)r.textContent="Reaches: "+bReach(bFromKey(t.value))+".";save();return}
-  if(t.id==="feed-filter"){S.feedFilter=t.value;render();return}
+  if(t.id==="feed-filter"){S.feedFilter=t.value;const fv=t.value;let k="";
+    if(fv.startsWith("at:")){const n=+fv.slice(3);k=n===0?"gl":"l:"+n}
+    else if(fv.startsWith("ad:"))k="d:"+fv.slice(3);
+    else if(fv.startsWith("ab:")){const b=entById(fv.slice(3));if(b)k=b.lvl==="orient"?"or":(b.lvl==="valley"?"v:":"a:")+b.id}
+    if(k&&boardsICanPost().some(b=>bKey(b)===k))S.postTo=k;
+    render();return}
   if(t.id==="scope"){S.calScope=t.value;render();return}
   if(t.dataset.sw===undefined&&t.id&&t.id.startsWith("pv-")){const s=document.querySelector(`[data-sw="${t.id}"]`);if(s)s.textContent=t.checked?"Public":"Private";return}
   if(t.id==="photo-file"){const f=t.files&&t.files[0];if(!f)return;const img=new Image(),url=URL.createObjectURL(f);
