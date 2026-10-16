@@ -712,7 +712,7 @@ function tabs(){
   const T=[
     {k:"feed",l:"Trestle Board"},
     {k:"dir",l:"Lodge Directory",main:"dir:mine",sub:[["dir:mine","My lodges"],["dir:find","Find a lodge"]]},
-    {k:"bodies",l:"Appendant Bodies",main:"bodies:all",sub:[["bodies:Shrine","Shrine"],["bodies:Scottish Rite","Scottish Rite"],["bodies:York Rite","York Rite"]]},
+    {k:"bodies",l:"Appendant Bodies",main:"bodies:home",sub:[["bodies:Shrine","Shrine"],["bodies:Scottish Rite","Scottish Rite"],["bodies:York Rite","York Rite"]]},
     {k:"cal",l:"Calendar"},
     {k:"members",l:"Members",main:"members",sub:[["members","Member directory"],...(pr?[["members:profile","My profile"],["members:card","My card"],["members:mentor","Mentoring"],["members:messages","Messages",un]]:[])]},
     {k:"res",l:"Resources",main:"res",sub:RES.map((g,i)=>resItems(g).length?["res:"+i,g.sec]:null).filter(Boolean)}];
@@ -728,7 +728,7 @@ function goTo(go){
   const[tab,sub]=go.split(":");
   UI={editing:false,editProfile:false,adding:null,confirmDel:null};
   if(tab==="dir"){S.tab="dir";S.dirFind=sub==="find";S.dist="";S.q="";render();scrollTo(0,0);return}
-  if(tab==="bodies"){S.tab="bodies";S.bodyT=sub==="all"?"":sub;S.bodyK="";S.bodyQ="";render();scrollTo(0,0);return}
+  if(tab==="bodies"){S.tab="bodies";S.bodyT=sub==="home"?null:sub==="all"?"":sub;S.bodyK="";S.bodyQ="";render();scrollTo(0,0);return}
   if(tab==="members"&&sub==="profile"){openProfile();return}
   if(tab==="members"&&sub==="mentor"){S.tab="mentor";render();scrollTo(0,0);return}
   if(tab==="members"&&sub==="card"){S.tab="card";render();scrollTo(0,0);return}
@@ -771,15 +771,22 @@ function bodyDetail(){
     <dt>Meeting</dt><dd><span class="unset">Not set yet</span></dd></dl>
   <div class="section"><h3 class="sub">Calendar and Trestle Board</h3><p class="hint">Coming next. Events and posts from the bodies you follow will show up on your Trestle Board and Calendar next to your lodges.</p></div>
   <p class="hint" style="margin-top:16px">Listing source: ${esc(src)}. Names and cities were copied from a web listing and may be out of date. Please report anything wrong.</p>`}
+const BLAND={"Shrine":["Shrine","Shriners temples across Texas, including the Shriners Hospitals mission."],"Scottish Rite":["Scottish Rite","The Valleys of the Scottish Rite in Texas."],"York Rite":["York Rite","Royal Arch Chapters, Councils of Royal & Select Masters and Commanderies of Knights Templar."]};
+function bodiesLanding(fl){
+  const cnt=t=>BODIES.filter(b=>b.t===t).length,unit={"Shrine":"temples","Scottish Rite":"valleys","York Rite":"bodies"};
+  return `${fl}<h3 class="sub" style="margin:0 0 4px">Appendant Bodies</h3><p class="hint" style="margin:0 0 14px">Pick a body to see its Texas locations.</p>
+  <div class="cards">${["Shrine","Scottish Rite","York Rite"].map(t=>`<button type="button" class="card" data-act="body-type" data-v="${t}"><span class="t">${BLAND[t][0]}</span><span class="isub">${BLAND[t][1]}</span><span><span class="chip mem">${cnt(t)} ${unit[t]}</span></span></button>`).join("")}</div>
+  <p style="margin:16px 0 0"><button class="linkbtn" type="button" data-act="body-type" data-v="">View all ${BODIES.length} bodies</button></p>`}
 function bodiesView(){
+  const fl0=((S.bodyFollows||{})[S.user]||[]).map(bodyById).filter(Boolean);
+  const strip=signedIn()&&fl0.length?`<div class="panel pad" style="margin-bottom:16px;display:grid;gap:8px"><span class="eyebrow" style="margin:0">Following (${fl0.length})</span><div style="display:flex;flex-wrap:wrap;gap:8px">${fl0.map(b=>`<button type="button" class="btn ghost small" data-act="body-pick" data-bid="${b.id}">${esc(bodyTitle(b))}</button>`).join("")}</div></div>`:"";
+  if(S.bodyT==null) return bodiesLanding(strip);
   const list=bodyFiltered(),fl=((S.bodyFollows||{})[S.user]||[]).map(bodyById).filter(Boolean);
   if(!S.bodySel||!bodyById(S.bodySel))S.bodySel=(list[0]||BODIES[0]).id;
-  const types=["","Shrine","Scottish Rite","York Rite"],kinds=["","Chapter","Council","Commandery"];
+  const kinds=["","Chapter","Council","Commandery"];
   const chip=(a,v,cur,l)=>`<button type="button" class="btn ${cur===v?"":"ghost"} small" data-act="${a}" data-v="${esc(v)}">${l}</button>`;
-  const cnt=t=>BODIES.filter(b=>!t||b.t===t).length;
-  return `${signedIn()&&fl.length?`<div class="panel pad" style="margin-bottom:16px;display:grid;gap:8px"><span class="eyebrow" style="margin:0">Following (${fl.length})</span><div style="display:flex;flex-wrap:wrap;gap:8px">${fl.map(b=>`<button type="button" class="btn ${S.bodySel===b.id?"":"ghost"} small" data-act="body-sel" data-bid="${b.id}">${esc(bodyTitle(b))}</button>`).join("")}</div></div>`:""}
-  <h3 class="sub" style="margin:0 0 4px">Appendant Bodies</h3><p class="hint" style="margin:0 0 10px">Bodies that Master Masons can join after the Blue Lodge: the Shrine, the Scottish Rite and the York Rite.</p>
-  <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px">${types.map(t=>chip("body-type",t,S.bodyT||"",(t||"All")+" ("+cnt(t)+")")).join("")}</div>
+    return `${strip}<div class="actions" style="margin:0 0 12px"><button class="btn ghost small" type="button" data-act="body-home">← Appendant Bodies</button></div>
+  <h3 class="sub" style="margin:0 0 10px">${S.bodyT?esc(S.bodyT):"All appendant bodies"}</h3>
   ${S.bodyT==="York Rite"?`<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px">${kinds.map(k=>chip("body-kind",k,S.bodyK||"",k?k.replace(/y$/,"ie")+"s":"All York Rite")).join("")}</div>`:""}
   <div class="grid"><div class="panel"><div class="filters"><input type="text" id="bq" placeholder="Search name, number or city" value="${esc(S.bodyQ||"")}" aria-label="Search bodies"><div class="count" id="bcount">${list.length} of ${BODIES.length} bodies</div></div>
     <div class="list" id="blist">${bodyListHtml(list)}</div></div>
@@ -1524,7 +1531,9 @@ document.addEventListener("click",e=>{
   if(t.dataset.act!=="menu"&&UI.menu){UI.menu=false;renderAcct()}
   switch(t.dataset.act){
     case "body-sel":S.bodySel=t.dataset.bid;render();if(window.innerWidth<=820)document.getElementById("bdetail")?.scrollIntoView({block:"start"});break;
-    case "body-type":S.bodyT=t.dataset.v;S.bodyK="";render();break;
+    case "body-type":S.bodyT=t.dataset.v;S.bodyK="";S.bodyQ="";render();scrollTo(0,0);break;
+    case "body-home":S.bodyT=null;render();scrollTo(0,0);break;
+    case "body-pick":{const b=bodyById(t.dataset.bid);S.bodyT=b.t;S.bodyK="";S.bodyQ="";S.bodySel=b.id;render();scrollTo(0,0);break}
     case "body-kind":S.bodyK=t.dataset.v;render();break;
     case "body-follow":{const a=(S.bodyFollows||(S.bodyFollows={}))[S.user]||(S.bodyFollows[S.user]=[]);const i=a.indexOf(t.dataset.bid),b=bodyById(t.dataset.bid);if(i>=0){a.splice(i,1);toast(`Unfollowed ${bodyTitle(b)}`)}else{a.push(t.dataset.bid);toast(`Following ${bodyTitle(b)}`)}render();break}
     case "dir-find":S.dirFind=true;S.q="";S.dist="";render();break;
