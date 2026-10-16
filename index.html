@@ -938,11 +938,11 @@ function item(l){
 }
 const OFFICES=["Worshipful Master","Senior Warden","Junior Warden","Treasurer","Secretary","Chaplain","Senior Deacon","Junior Deacon","Senior Steward","Junior Steward","Marshal","Master of Ceremonies","Musician","Tiler"];
 const lodgeRe=l=>new RegExp("No\\.\\s*"+l.n+"\\b");
-function officeIn(p,l){const c=(p.current||[]).filter(x=>OFFICES.includes(String(x.title||"").trim())&&lodgeRe(l).test(String(x.body||"")));
-  c.sort((a,b)=>OFFICES.indexOf(a.title.trim())-OFFICES.indexOf(b.title.trim()));return c[0]?c[0].title.trim():""}
+function officeIn(p,l){const c=holds(p,"l:"+l.n).filter(t=>OFFICES.includes(t));
+  c.sort((a,b)=>OFFICES.indexOf(a)-OFFICES.indexOf(b));return c[0]||""}
 const lodgeRoster=l=>Object.entries(S.profiles).filter(([,p])=>p.lodges.some(x=>x.n===l.n&&!x.pending));
 function officerList(l){
-  const rows=lodgeRoster(l).map(([id,p])=>({id,p,o:officeIn(p,l)})).filter(x=>x.o).sort((a,b)=>OFFICES.indexOf(a.o)-OFFICES.indexOf(b.o));
+  const rows=Object.entries(S.profiles).map(([id,p])=>({id,p,o:officeIn(p,l)})).filter(x=>x.o).sort((a,b)=>OFFICES.indexOf(a.o)-OFFICES.indexOf(b.o));
   if(!rows.length)return `<p class="hint">No officers listed yet.${canEdit(l)?" Use Edit lodge info to assign them.":""}</p>`;
   return `<div class="cards">${rows.map(r=>`<button type="button" class="card" data-person="${r.id}"><span style="display:flex;gap:10px;align-items:center"><span class="avatar">${initials(r.p.name)}</span><span class="t">${esc(r.p.name)}</span></span><span><span class="chip acc">${esc(r.o)}</span></span></button>`).join("")}</div>`}
 const APP_STATUS=["Received","Elected","Rejected","Withdrawn","Initiated"];
@@ -970,7 +970,7 @@ function applicationsBlock(l){
 function officerManager(l){
   if(l.gl||!canEdit(l))return "";
   const ros=lodgeRoster(l).sort((a,b)=>a[1].name.localeCompare(b[1].name));
-  const holder=o=>{const h=ros.find(([,p])=>(p.current||[]).some(c=>String(c.title||"").trim()===o&&lodgeRe(l).test(String(c.body||""))));return h?h[0]:""};
+  const holder=o=>{const h=ros.find(([,p])=>holds(p,"l:"+l.n).includes(o));return h?h[0]:""};
   return `<div class="section"><h3 class="sub">Officers</h3><p class="hint" style="margin:0 0 10px">Pick a member for each office. Only members of this lodge can be chosen. The title shows on his profile and next to his name.</p>
   <div class="stack" style="padding:0;gap:8px">${OFFICES.map((o,i)=>{const h=holder(o);return `<div class="inline-form" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><b style="min-width:150px">${o}</b>
     <select id="off-${i}" aria-label="${o}"><option value="">Vacant</option>${ros.map(([id,p])=>`<option value="${id}" ${id===h?"selected":""}>${esc(p.name)} (${degP(p)})</option>`).join("")}</select>
@@ -1759,8 +1759,8 @@ document.addEventListener("click",e=>{
     case "del-post":S.posts=S.posts.filter(p=>p.id!==t.dataset.id);toast("Post deleted");render();break;
     case "res":toast(`${t.dataset.res} is coming soon`);break;
     case "off-set":{const l=byNum(S.sel);if(!l||!canEdit(l))break;const o=OFFICES[+t.dataset.i],pid=(document.getElementById("off-"+t.dataset.i)||{}).value||"";
-      Object.values(S.profiles).forEach(p=>{p.current=(p.current||[]).filter(c=>!(String(c.title||"").trim()===o&&lodgeRe(l).test(String(c.body||""))))});
-      if(pid&&S.profiles[pid]){S.profiles[pid].current.unshift({title:o,body:`${l.name} Lodge No. ${l.n}`,year:String(new Date().getFullYear())})}
+      Object.values(S.profiles).forEach(p=>{p.current=(p.current||[]).filter(c=>!(String(c.title||"").trim()===o&&((c.ref&&refKey(c.ref)==="l:"+l.n)||lodgeRe(l).test(String(c.body||"")))))});
+      if(pid&&S.profiles[pid]){S.profiles[pid].current.unshift({title:o,body:`${l.name} Lodge No. ${l.n}`,ref:{t:"l",id:l.n},year:String(new Date().getFullYear())})}
       toast(pid?`${o} saved`:`${o} is now vacant`);render();break}
     case "add-anyway":{const w=UI.addWarn,l=w&&byNum(w.lodge);if(w&&l&&canEdit(l)){createMember(l,w.nm,w.em,w.dg,w.dt);UI.addWarn=null;toast(`${w.nm} added. Invitation emails go out once the site is live.`);render()}break}
     case "add-cancel":UI.addWarn=null;render();break;
