@@ -1562,20 +1562,46 @@ function postExtras(p){
   return h}
 function feedTabs(){const a=S.tab==="cal"?"cal":S.feedTab==="groups"?"groups":"feed";
   return `<div class="seg" role="tablist" aria-label="Trestle Board sections" style="margin:0 0 4px">${[["feed","Trestle Board"],["cal","Calendar"],["groups","Groups"]].map(([k,l])=>`<button type="button" class="btn small ${a===k?"":"ghost"}" role="tab" aria-selected="${a===k}" data-act="feed-tab" data-k="${k}">${l}</button>`).join(" ")}</div>`}
-function myGroups(){
-  const m=myProfile();if(!m)return [];const out=[];
-  myLodges().filter(n=>n!==0).forEach(n=>{const l=byNum(n);if(!l)return;
-    const mem=Object.entries(S.profiles).filter(([,p])=>p.lodges.some(x=>x.n===n&&!x.pending)).map(([id])=>id);
-    out.push({id:"l"+n,name:lname(l)+" members",lodge:n,members:mem,auto:true})});
-  (S.groups||[]).filter(g=>g.members.includes(me().profile)).forEach(g=>out.push(g));
+const scopeName=k=>{if(!k)return "Personal";if(k==="gl")return "Grand Lodge";if(k[0]==="l"){const l=byNum(+k.slice(2));return l?lname(l):k}if(k[0]==="e"){const e=entById(k.slice(2));return e?bodyTitle(e):k}if(k[0]==="d")return "District "+k.slice(2);return k};
+const scopeLink=k=>{if(!k)return "Personal";if(k[0]==="l"&&byNum(+k.slice(2)))return `<button type="button" class="linkbtn" data-lodge-open="${k.slice(2)}">${esc(scopeName(k))}</button>`;if(k[0]==="e"&&entById(k.slice(2)))return `<button type="button" class="linkbtn" data-act="ent-open" data-bid="${esc(k.slice(2))}">${esc(scopeName(k))}</button>`;return esc(scopeName(k))};
+function myScopes(){
+  if(!signedIn()||!meP())return [];const out=[];
+  myLodges().filter(n=>n!==0).forEach(n=>{if(canManagePos("l:"+n))out.push("l:"+n)});
+  const p=myProfile(),seen=new Set();
+  ((p&&p.current)||[]).concat((p&&p.bodies)||[]).forEach(c=>{if(c.ref&&c.ref.t==="e"&&!seen.has(c.ref.id)){seen.add(c.ref.id);if(entById(c.ref.id)&&canManagePos("e:"+c.ref.id))out.push("e:"+c.ref.id)}});
+  boardsICanPost().filter(b=>b.t==="district").forEach(b=>out.push("d:"+b.id));
+  if(can("postGrandLodge"))out.push("gl");
   return out}
+const grpAdmin=g=>(g.admins||[]).includes(meP());
+const grpMine=g=>g.members.includes(meP());
+function migrateGroups(){(S.groups||[]).forEach(g=>{if(!g.admins)g.admins=[g.members[g.members.length-1]].filter(Boolean);if(!g.requests)g.requests=[];if(g.scope===undefined)g.scope=""})}
+function myGroups(){
+  if(!meP())return [];
+  return (S.groups||[]).filter(g=>grpMine(g))}
+const pname=id=>(S.profiles[id]&&S.profiles[id].name)||"Member";
+function groupCard(g){
+  const adm=grpAdmin(g),open=UI.grpOpen===g.id;
+  const memRows=g.members.slice().sort((a,b)=>pname(a).localeCompare(pname(b))).map(id=>`<li style="display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap"><span><button type="button" class="linkbtn" data-person="${id}">${esc(pname(id))}</button>${(g.admins||[]).includes(id)?` <span class="chip acc">Admin</span>`:""}${S.profiles[id]&&S.profiles[id].sample?` <span class="chip pilot">Test</span>`:""}</span>${adm?`<span style="display:flex;gap:6px"><button class="btn ghost small" type="button" data-act="grp-admin" data-id="${esc(g.id)}" data-pid="${id}">${(g.admins||[]).includes(id)?"Remove admin":"Make admin"}</button>${id===meP()?"":`<button class="btn ghost small" type="button" data-act="grp-remove" data-id="${esc(g.id)}" data-pid="${id}">Remove</button>`}</span>`:""}</li>`).join("");
+  const reqs=(g.requests||[]).map(id=>`<li style="display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap"><span>${esc(pname(id))} wants to join</span><span style="display:flex;gap:6px"><button class="btn small" type="button" data-act="grp-approve" data-id="${esc(g.id)}" data-pid="${id}">Approve</button><button class="btn ghost small" type="button" data-act="grp-deny" data-id="${esc(g.id)}" data-pid="${id}">Decline</button></span></li>`).join("");
+  const cand=Object.keys(S.profiles).filter(id=>!g.members.includes(id)).sort((a,b)=>pname(a).localeCompare(pname(b)));
+  return `<div class="panel pad" style="display:grid;gap:8px"><div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap"><div><b>${esc(g.name)}</b> <span class="chip">${g.scope?"":"Personal"}${g.scope?scopeLink(g.scope):""}</span>${adm?` <span class="chip acc">You manage this</span>`:""}${adm&&(g.requests||[]).length?` <span class="chip pilot">${g.requests.length} request${g.requests.length>1?"s":""}</span>`:""}
+    <div class="isub">${g.members.length} ${g.members.length===1?"member":"members"}${g.desc?" · "+esc(g.desc):""}</div></div>
+    <div class="actions" style="margin:0"><button class="btn small" type="button" data-act="group-msg" data-id="${esc(g.id)}">Message group</button>${adm?`<button class="btn ghost small" type="button" data-act="grp-manage" data-id="${esc(g.id)}">${open?"Close":"Manage"}</button>`:""}<button class="btn ghost small" type="button" data-act="grp-leave" data-id="${esc(g.id)}">Leave</button></div></div>
+    ${open?`<div style="display:grid;gap:10px;border-top:1px solid var(--line);padding-top:10px">
+      ${reqs?`<div><span class="eyebrow" style="margin:0">Requests</span><ul class="resume">${reqs}</ul></div>`:""}
+      <form class="inline-form" data-grpadd="${esc(g.id)}"><label>Add a member<input type="text" name="who" list="grp-ppl-${esc(g.id)}" autocomplete="off" placeholder="Start typing a name, then pick it"><datalist id="grp-ppl-${esc(g.id)}">${cand.map(id=>`<option value="${esc(pname(id))}"></option>`).join("")}</datalist></label><button class="btn small" type="submit">Add</button></form>
+      <div><span class="eyebrow" style="margin:0">Members</span><ul class="resume">${memRows}</ul></div>
+      <div><button class="btn ghost small" type="button" data-act="group-del" data-id="${esc(g.id)}">Delete this group</button></div></div>`
+    :`<div class="isub">${g.members.slice(0,6).map(id=>esc(pname(id))).join(", ")}${g.members.length>6?` and ${g.members.length-6} more`:""}</div>`}</div>`}
 function groupsView(){
-  const gs=myGroups();
-  return `<div class="stack" style="max-width:680px"><div><h2 class="title" style="margin:0 0 6px">Groups</h2><p class="hint" style="margin:0">Your lodges' member groups and any groups you belong to. Message a whole group in one tap.</p></div>
-  ${gs.length?gs.map(g=>`<div class="panel pad" style="display:grid;gap:8px"><div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap"><div><b>${esc(g.name)}</b> ${g.auto?`<span class="chip mem">Lodge</span>`:`<span class="chip">Custom</span>`}<div class="isub">${g.members.length} ${g.members.length===1?"member":"members"}</div></div>
-    <div class="actions" style="margin:0"><button class="btn small" type="button" data-act="group-msg" data-id="${esc(g.id)}">Message group</button>${g.auto?`<button class="btn small ghost" type="button" data-act="lodge-board" data-n="${g.lodge}">Lodge board</button>`:`<button class="btn small ghost" type="button" data-act="group-del" data-id="${esc(g.id)}">Delete</button>`}</div></div>
-    <div class="isub">${g.members.slice(0,6).map(id=>esc(S.profiles[id]?.name||"Member")).join(", ")}${g.members.length>6?` and ${g.members.length-6} more`:""}</div></div>`).join(""):`<div class="panel empty">No groups yet.</div>`}
-  ${meP()?`<form class="panel pad" id="groupform" style="display:grid;gap:10px"><b>Start a group</b><input type="text" id="group-name" placeholder="Group name, e.g. Degree team" aria-label="Group name"><div style="max-height:200px;overflow-y:auto;border:1px solid var(--line);border-radius:8px">${Object.keys(S.profiles).filter(id=>id!==meP()).sort((a,b)=>S.profiles[a].name.localeCompare(S.profiles[b].name)).map(id=>`<label class="pick" style="display:flex;gap:8px;align-items:center;padding:6px 8px"><input type="checkbox" name="gm" value="${id}"> <span>${esc(S.profiles[id].name)}</span></label>`).join("")}</div><button class="btn small" type="submit" style="justify-self:start">Create group</button></form>`:""}</div>`}
+  migrateGroups();
+  const gs=myGroups(),q=(UI.gq||"").trim().toLowerCase(),sc=myScopes(),me_=meP();
+  const find=(S.groups||[]).filter(g=>!grpMine(g)&&(!q||(g.name+" "+scopeName(g.scope)+" "+(g.desc||"")).toLowerCase().includes(q)));
+  return `<div class="stack" style="max-width:680px"><div><h2 class="title" style="margin:0 0 6px">Groups</h2><p class="hint" style="margin:0">Your groups, and groups you have been added to. A group's admins add and remove its people. You can leave any group, or search for one and ask to join.</p></div>
+  ${gs.length?gs.map(groupCard).join(""):`<div class="panel empty">You are not in any groups yet. Search below to ask to join one${sc.length?", or start one for a lodge, body or district you manage":""}.</div>`}
+  ${me_?`<div class="panel pad" style="display:grid;gap:8px"><b>Find a group</b><input type="text" id="gq" placeholder="Search by group name, lodge, body or district" value="${esc(UI.gq||"")}" aria-label="Search groups">
+    ${find.length?find.slice(0,20).map(g=>`<div style="display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:8px"><span><b>${esc(g.name)}</b> <span class="chip">${scopeLink(g.scope)}</span><br><span class="isub">${g.members.length} ${g.members.length===1?"member":"members"}${g.desc?" · "+esc(g.desc):""}</span></span>${(g.requests||[]).includes(me_)?`<span style="display:flex;gap:6px;align-items:center"><span class="chip pilot">Requested</span><button class="btn ghost small" type="button" data-act="grp-req-cancel" data-id="${esc(g.id)}">Cancel</button></span>`:`<button class="btn small" type="button" data-act="grp-req" data-id="${esc(g.id)}">Request to join</button>`}</div>`).join(""):`<p class="hint" style="margin:0">${q?"No groups match that search.":"No other groups yet."}</p>`}</div>`:""}
+  ${sc.length?`<form class="panel pad" id="groupform" style="display:grid;gap:10px"><b>Start a group</b><p class="hint" style="margin:0">Groups belong to a lodge, body or district you manage. You become its admin and add the people.</p><select id="group-scope" aria-label="Group belongs to">${sc.map(k=>`<option value="${esc(k)}">${esc(scopeName(k))}</option>`).join("")}</select><input type="text" id="group-name" placeholder="Group name, e.g. Degree team" aria-label="Group name"><input type="text" id="group-desc" placeholder="What it's for (optional)" aria-label="Description"><button class="btn small" type="submit" style="justify-self:start">Create group</button></form>`:`<p class="hint">Only people who manage a lodge, body or district can start a group there.</p>`}</div>`}
 function feedView(){
   if(S.feedTab==="groups"&&signedIn()) return `<div class="stack" style="max-width:680px">${feedTabs()}</div>`+groupsView();
   const pr=myProfile();
@@ -1765,7 +1791,17 @@ document.addEventListener("click",e=>{
     case "add-ev-feed":UI.adding="cal";render();document.getElementById("ev-title")?.focus();break;
     case "post-from-cal":S.tab="feed";S.feedTab="feed";S.feedFilter="all";UI.adding=null;render();document.getElementById("post-text")?.focus();scrollTo(0,0);break;
     case "group-msg":{const g=myGroups().find(x=>x.id===t.dataset.id);if(!g)break;S.newMsg=true;S.newTo=g.members.filter(x=>x!==meP());S.msgGroup=g.name;S.msgFirst="";S.msgQ="";S.tab="messages";render();scrollTo(0,0);break}
-    case "group-del":S.groups=(S.groups||[]).filter(g=>g.id!==t.dataset.id);render();break;
+    case "group-del":{const g=(S.groups||[]).find(x=>x.id===t.dataset.id);if(!g||!grpAdmin(g))break;S.groups=S.groups.filter(x=>x.id!==g.id);UI.grpOpen=null;toast("Group deleted");render();break}
+    case "grp-manage":UI.grpOpen=UI.grpOpen===t.dataset.id?null:t.dataset.id;render();break;
+    case "grp-leave":{const g=(S.groups||[]).find(x=>x.id===t.dataset.id);if(!g)break;const me_=meP();g.members=g.members.filter(x=>x!==me_);g.admins=(g.admins||[]).filter(x=>x!==me_);
+      if(!g.members.length)S.groups=S.groups.filter(x=>x.id!==g.id);else if(!g.admins.length)g.admins=[g.members[0]];toast("You left "+g.name);render();break}
+    case "grp-remove":{const g=(S.groups||[]).find(x=>x.id===t.dataset.id);if(!g||!grpAdmin(g))break;const id=t.dataset.pid;if(id===meP())break;g.members=g.members.filter(x=>x!==id);g.admins=(g.admins||[]).filter(x=>x!==id);toast("Removed");render();break}
+    case "grp-admin":{const g=(S.groups||[]).find(x=>x.id===t.dataset.id);if(!g||!grpAdmin(g))break;const id=t.dataset.pid;
+      if(g.admins.includes(id)){if(g.admins.length<2){toast("A group needs at least one admin");break}g.admins=g.admins.filter(x=>x!==id)}else g.admins.push(id);render();break}
+    case "grp-req":{const g=(S.groups||[]).find(x=>x.id===t.dataset.id);if(!g||!meP()||grpMine(g))break;g.requests=g.requests||[];if(!g.requests.includes(meP()))g.requests.push(meP());toast("Request sent to the group's admins");render();break}
+    case "grp-req-cancel":{const g=(S.groups||[]).find(x=>x.id===t.dataset.id);if(!g)break;g.requests=(g.requests||[]).filter(x=>x!==meP());render();break}
+    case "grp-approve":{const g=(S.groups||[]).find(x=>x.id===t.dataset.id);if(!g||!grpAdmin(g))break;const id=t.dataset.pid;g.requests=(g.requests||[]).filter(x=>x!==id);if(!g.members.includes(id))g.members.push(id);toast(pname(id)+" added");render();break}
+    case "grp-deny":{const g=(S.groups||[]).find(x=>x.id===t.dataset.id);if(!g||!grpAdmin(g))break;g.requests=(g.requests||[]).filter(x=>x!==t.dataset.pid);render();break}
     case "feed-reset":S.feedBoards=null;render();break;
     case "del-post":S.posts=S.posts.filter(p=>p.id!==t.dataset.id);toast("Post deleted");render();break;
     case "res":toast(`${t.dataset.res} is coming soon`);break;
@@ -1837,9 +1873,13 @@ document.addEventListener("submit",e=>{
     const hits=dupHits(nm,em,l.n,null,null);
     if(hits.length){UI.addWarn={nm,em,dg,dt,lodge:l.n,hits};render();return}
     UI.addWarn=null;createMember(l,nm,em,dg,dt);toast(`${nm} added. Invitation emails go out once the site is live.`);render();return}
-  if(f.id==="groupform"){const nm=(document.getElementById("group-name").value||"").trim(),ids=[...f.querySelectorAll('input[name=gm]:checked')].map(x=>x.value);
-    if(!nm){toast("Name the group first");return}if(!ids.length){toast("Pick at least one member");return}
-    S.groups=S.groups||[];S.groups.push({id:"g"+Date.now().toString(36),name:nm,members:[...ids,meP()]});toast("Group created");render();return}
+  if(f.id==="groupform"){const nm=(document.getElementById("group-name").value||"").trim(),sc=document.getElementById("group-scope").value,ds=(document.getElementById("group-desc").value||"").trim();
+    if(!nm){toast("Name the group first");return}if(!myScopes().includes(sc)){toast("You can't start a group there");return}
+    S.groups=S.groups||[];const id="g"+Date.now().toString(36);S.groups.push({id,name:nm,desc:ds,scope:sc,admins:[meP()],members:[meP()],requests:[]});UI.grpOpen=id;logIt(`started the group ${nm}`);toast("Group created. Add its people under Manage.");render();return}
+  if(f.dataset.grpadd){const g=(S.groups||[]).find(x=>x.id===f.dataset.grpadd);if(!g||!grpAdmin(g))return;const nm=(new FormData(f).get("who")||"").trim().toLowerCase();
+    const hit=Object.keys(S.profiles).filter(id=>pname(id).toLowerCase()===nm&&!g.members.includes(id));
+    if(hit.length!==1){toast(hit.length?"More than one match. Use the full name from the list":"Pick a name from the list");return}
+    g.members.push(hit[0]);toast(`${pname(hit[0])} added`);render();return}
   if(f.id==="newmsg"){const to=[...(S.newTo||[])],txt=(document.getElementById("msg-first").value||"").trim();if(!to.length){toast("Pick at least one member");return}if(!txt){toast("Write a message first");return}
     ensureConvos();const m=meP(),mem=[m,...to];let c=to.length===1?S.convos.find(x=>!x.title&&x.members.length===2&&x.members.includes(to[0])&&x.members.includes(m)):null;
     if(!c){c={id:"c"+Date.now().toString(36),title:to.length>1?(document.getElementById("msg-group")?.value||"").trim():"",members:mem,msgs:[],read:{}};S.convos.push(c)}
@@ -1931,6 +1971,7 @@ document.addEventListener("input",e=>{
   if(e.target.id==="msg-q"){S.msgQ=e.target.value;const pos=e.target.selectionStart;render();const i=document.getElementById("msg-q");i.focus();i.setSelectionRange(pos,pos);return}
   if(e.target.id==="msg-first"){S.msgFirst=e.target.value;return}
   if(e.target.id==="msg-group"){S.msgGroup=e.target.value;return}
+  if(e.target.id==="gq"){UI.gq=e.target.value;const pos=e.target.selectionStart;render();const i=document.getElementById("gq");i.focus();i.setSelectionRange(pos,pos);return}
   if(e.target.id==="mq"){S.mq=e.target.value;const pos=e.target.selectionStart;render();const i=document.getElementById("mq");i.focus();i.setSelectionRange(pos,pos);}
 });
 document.addEventListener("keydown",e=>{if(e.key==="Escape"){if(UI.menu){UI.menu=false;renderAcct()}if(UI.navMenu){UI.navMenu=null;tabs()}}});
