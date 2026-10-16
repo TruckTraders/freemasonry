@@ -766,12 +766,17 @@ const postReachesEnt=(p,e)=>{const id=boardEntId(p.board);return !!id&&entChain(
 const bodyTitle=b=>b.lvl==="valley"?"Valley of "+b.city:b.t==="York Rite"?`${b.name} ${b.k} No. ${b.n}`:b.name;
 const bodyFollowing=id=>((S.bodyFollows||{})[S.user]||[]).includes(id);
 const bodyFiltered=()=>{const q=(S.bodyQ||"").trim().toLowerCase();
-  if(S.bodyT==="Scottish Rite"){const all=[SRORIENT];BODIES.filter(b=>b.lvl==="valley").forEach(v=>{all.push(v);SRX.filter(e=>e.valley===v.id).forEach(e=>all.push(e))});return q?all.filter(e=>`${e.name} ${e.city||""} ${e.bn||""}`.toLowerCase().includes(q)):all}
+  if(S.bodyT==="Scottish Rite"){const o=S.srOpen||{};
+    if(q){const all=[SRORIENT];BODIES.filter(b=>b.lvl==="valley").forEach(v=>{all.push(v);SRX.filter(e=>e.valley===v.id).forEach(e=>all.push(e))});return all.filter(e=>`${e.name} ${e.city||""} ${e.bn||""}`.toLowerCase().includes(q))}
+    const out=[SRORIENT];if(o["sr-texas"])BODIES.filter(b=>b.lvl==="valley").forEach(v=>{out.push(v);if(o[v.id])SRX.filter(e=>e.valley===v.id).forEach(e=>out.push(e))});return out}
   return BODIES.filter(b=>(!S.bodyT||b.t===S.bodyT)&&(!S.bodyK||b.k===S.bodyK)&&(!q||`${b.name} ${b.city||""} ${b.n||""} ${b.t} ${b.k||""}`.toLowerCase().includes(q)))};
-const bodyCount=l=>S.bodyT==="Scottish Rite"?`${l.length} entries`:`${l.length} of ${BODIES.length} bodies`;
-function bodyItem(b){const ind=b.lvl==="body"&&!(S.bodyQ||"").trim()?"padding-left:30px;":"";
-  return `<button type="button" class="item" style="${ind}" data-act="body-sel" data-bid="${b.id}" aria-current="${S.bodySel===b.id}"><span class="num">${b.lvl==="orient"?"TX":b.lvl==="body"?b.abbr:b.n!=null?b.n:b.t==="Shrine"?"SH":"SR"}</span>
-  <span style="min-width:0"><span class="iname">${esc(b.name)}</span><span class="isub">${b.lvl==="orient"?"Top level · every Valley":b.lvl==="valley"?"Valley · 4 bodies":b.lvl==="body"?esc(b.degs)+" degrees":b.t==="York Rite"?esc(b.k)+" · "+esc(b.city||"—"):esc(b.city||"—")}</span></span><span>${bodyFollowing(b.id)?`<span class="chip">Following</span>`:""}</span></button>`}
+const bodyCount=l=>S.bodyT==="Scottish Rite"?((S.bodyQ||"").trim()?`${l.length} found`:"Tap ▸ to expand"):`${l.length} of ${BODIES.length} bodies`;
+function bodyItem(b){const tree=S.bodyT==="Scottish Rite"&&!(S.bodyQ||"").trim()&&b.lvl;const ind=tree&&b.lvl==="body"?"padding-left:30px;":tree&&b.lvl==="valley"?"padding-left:14px;":"";
+  const kids=b.lvl==="orient"||b.lvl==="valley",open=!!(S.srOpen||{})[b.id];
+  const row=`<button type="button" class="item" style="${ind}${tree&&kids?"flex:1;min-width:0;":""}" data-act="body-sel" data-bid="${b.id}" aria-current="${S.bodySel===b.id}"><span class="num">${b.lvl==="orient"?"TX":b.lvl==="body"?b.abbr:b.n!=null?b.n:b.t==="Shrine"?"SH":"SR"}</span>
+  <span style="min-width:0"><span class="iname">${esc(b.name)}</span><span class="isub">${b.lvl==="orient"?"Top level · 9 Valleys":b.lvl==="valley"?"Valley · 4 bodies":b.lvl==="body"?esc(b.degs)+" degrees":b.t==="York Rite"?esc(b.k)+" · "+esc(b.city||"—"):esc(b.city||"—")}</span></span><span>${bodyFollowing(b.id)?`<span class="chip">Following</span>`:""}</span></button>`;
+  if(!(tree&&kids))return row;
+  return `<div style="display:flex;align-items:stretch;border-bottom:1px solid var(--line)${b.lvl==="valley"?";padding-left:0":""}"><button type="button" class="btn ghost small" style="border:0;border-radius:0;width:38px;flex:none;font-size:15px" data-act="sr-toggle" data-bid="${b.id}" aria-expanded="${open}" aria-label="${open?"Collapse":"Expand"} ${esc(b.name)}">${open?"▾":"▸"}</button>${row}</div>`}
 const bodyListHtml=l=>l.length?l.map(bodyItem).join(""):`<div class="empty">No bodies match that search.</div>`;
 function bodyDetail(){
   const b=bodyById(S.bodySel);if(!b)return `<div class="empty">Pick a body from the list.</div>`;
@@ -1555,11 +1560,12 @@ document.addEventListener("click",e=>{
   const l=byNum(S.sel);
   if(t.dataset.act!=="menu"&&UI.menu){UI.menu=false;renderAcct()}
   switch(t.dataset.act){
-    case "body-sel":S.bodySel=t.dataset.bid;render();if(window.innerWidth<=820)document.getElementById("bdetail")?.scrollIntoView({block:"start"});break;
+    case "sr-toggle":{const o=S.srOpen||(S.srOpen={});o[t.dataset.bid]=!o[t.dataset.bid];if(!o[t.dataset.bid]&&t.dataset.bid==="sr-texas"){}render();break}
+    case "body-sel":{const e=entById(t.dataset.bid);if(e&&e.lvl){const o=S.srOpen||(S.srOpen={});entChain(e).slice(1).forEach(i=>o[i]=true);if(e.lvl!=="body")o[e.id]=true}}S.bodySel=t.dataset.bid;render();if(window.innerWidth<=820)document.getElementById("bdetail")?.scrollIntoView({block:"start"});break;
     case "body-type":S.bodyT=t.dataset.v;S.bodyK="";S.bodyQ="";render();scrollTo(0,0);break;
     case "body-board":{const b=entById(t.dataset.bid);S.feedFilter="ab:"+b.id;const k=b.lvl==="orient"?"or":(b.lvl==="valley"?"v:":"a:")+b.id;if(boardsICanPost().some(x=>bKey(x)===k))S.postTo=k;S.tab="feed";S.feedTab="feed";UI.editing=false;render();scrollTo(0,0);break}
     case "body-home":S.bodyT=null;render();scrollTo(0,0);break;
-    case "body-pick":{const b=bodyById(t.dataset.bid);S.bodyT=b.t;S.bodyK="";S.bodyQ="";S.bodySel=b.id;render();scrollTo(0,0);break}
+    case "body-pick":{const b=bodyById(t.dataset.bid);if(b.lvl){const o=S.srOpen||(S.srOpen={});entChain(b).slice(1).forEach(i=>o[i]=true)}S.bodyT=b.t;S.bodyK="";S.bodyQ="";S.bodySel=b.id;render();scrollTo(0,0);break}
     case "body-kind":S.bodyK=t.dataset.v;render();break;
     case "body-follow":{const a=(S.bodyFollows||(S.bodyFollows={}))[S.user]||(S.bodyFollows[S.user]=[]);const i=a.indexOf(t.dataset.bid),b=bodyById(t.dataset.bid);if(i>=0){a.splice(i,1);toast(`Unfollowed ${bodyTitle(b)}`)}else{a.push(t.dataset.bid);toast(`Following ${bodyTitle(b)}`)}render();break}
     case "dir-find":S.dirFind=true;S.q="";S.dist="";render();break;
