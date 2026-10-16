@@ -771,7 +771,7 @@ function tabs(){
 function goTo(go){
   const[tab,sub]=go.split(":");
   UI={editing:false,editProfile:false,adding:null,confirmDel:null};
-  if(tab==="dir"){S.tab="dir";S.dirFind=sub==="find";S.dirOpen=false;S.dist="";S.q="";render();scrollTo(0,0);return}
+  if(tab==="dir"){S.tab="dir";S.dirFind=sub==="find";S.dirOpen=false;S.distPage=null;S.dist="";S.q="";render();scrollTo(0,0);return}
   if(tab==="bodies"){S.tab="bodies";S.bodyOpen=false;S.bodyT=sub==="home"?null:sub==="all"?"":sub;S.bodyK="";S.bodyQ="";render();scrollTo(0,0);return}
   if(tab==="members"&&sub==="profile"){openProfile();return}
   if(tab==="members"&&sub==="mentor"){S.tab="mentor";render();scrollTo(0,0);return}
@@ -906,7 +906,9 @@ function dirView(){
     return `${myLodgesStrip()}${mine.length?`<div class="panel detail" id="detail">${lodgeDetail()}</div>`:`<div class="panel pad empty">Follow a lodge to see its calendar and Trestle Board here. <button class="linkbtn" type="button" data-act="dir-find">Find a lodge</button></div>`}`;
   }
   if(S.dirOpen&&byNum(S.sel)){
-    return `<div class="actions" style="margin:0 0 12px"><button class="btn ghost small" type="button" data-act="dir-list">← Back to find a lodge</button>${signedIn()?`<button class="btn ghost small" type="button" data-act="dir-mine">← Back to My Lodges</button>`:""}</div><div class="panel detail" id="detail">${lodgeDetail()}</div>`}
+    return `<div class="actions" style="margin:0 0 12px"><button class="btn ghost small" type="button" data-act="dir-list">← Back to ${S.distPage?esc(dLabel(S.distPage)):"find a lodge"}</button>${signedIn()?`<button class="btn ghost small" type="button" data-act="dir-mine">← Back to My Lodges</button>`:""}</div><div class="panel detail" id="detail">${lodgeDetail()}</div>`}
+  if(S.distPage&&L.some(l=>l.d===S.distPage)){
+    return `<div class="actions" style="margin:0 0 12px"><button class="btn ghost small" type="button" data-act="dist-list">← Back to find a lodge</button>${signedIn()?`<button class="btn ghost small" type="button" data-act="dir-mine">← Back to My Lodges</button>`:""}</div><div class="panel detail" id="detail">${districtDetail(S.distPage)}</div>`}
   const list=filtered(),ds=districts();
   return `${signedIn()?`<div class="actions" style="margin:0 0 12px"><button class="btn ghost small" type="button" data-act="dir-mine">← Back to My Lodges</button></div>`:""}<h3 class="sub" style="margin:0 0 10px">Find a lodge</h3><div class="grid"><div class="panel">
     <div class="filters">
@@ -920,7 +922,16 @@ function dirView(){
 const listHtml=list=>{if(!list.length)return `<div class="empty">No lodges match that search.</div>`;
   const o=S.distOpen||{},force=!!S.q.trim()||!!S.dist,by={};list.forEach(l=>(by[l.d]||(by[l.d]=[])).push(l));
   return districts().filter(d=>by[d]).map(d=>{const open=force||!!o[d],ls=by[d];
-    return `<button type="button" class="item tnode dnode" title="Open or close this district" data-act="dist-toggle" data-d="${esc(d)}" aria-expanded="${open}" ${force?"disabled":""}><span class="num">${open?"▾":"▸"}</span><span style="min-width:0"><span class="iname">${esc(dLabel(d))}</span><span class="isub">${ls.length} ${ls.length===1?"lodge":"lodges"}</span></span><span></span></button>${open?ls.map(l=>wrapK(item(l),1)).join(""):""}`}).join("")};
+    const short=d==="Grand Lodge"?"GL":d==="Statewide"?"ST":d;
+    return `<div class="tnode" style="display:flex;align-items:stretch;border-bottom:1px solid var(--line)"><button type="button" class="btn ghost small" title="Open or close this district" style="border:0;border-right:2px solid var(--line);border-radius:0;width:52px;flex:none;font-size:24px;line-height:1;color:var(--accent);font-weight:700" data-act="dist-toggle" data-d="${esc(d)}" aria-expanded="${open}" aria-label="${open?"Collapse":"Expand"} ${esc(dLabel(d))}">${open?"▾":"▸"}</button><button type="button" class="item" style="flex:1;min-width:0" data-act="dist-open" data-d="${esc(d)}" aria-current="${S.distPage===d}"><span class="num">${esc(short)}</span><span style="min-width:0"><span class="iname">${esc(dLabel(d))}</span><span class="isub">${ls.length} ${ls.length===1?"lodge":"lodges"} · open page</span></span><span></span></button></div>${open?ls.map(l=>wrapK(`<div style="display:flex;align-items:stretch"><span style="width:52px;flex:none"></span><div style="flex:1;min-width:0">${item(l)}</div></div>`,1)).join(""):""}`}).join("")};
+function districtDetail(d){
+  const ls=L.filter(l=>l.d===d),real=d!=="Grand Lodge"&&d!=="Statewide";
+  const posts=real&&signedIn()?S.posts.filter(x=>x.board.t==="district"&&x.board.id===d&&canSeePost(x)).sort((x,y)=>y.at.localeCompare(x.at)).slice(0,3):[];
+  const mayPost=real&&signedIn()&&boardsICanPost().some(b=>bKey(b)==="d:"+d);
+  return `<div class="eyebrow">${real?"District":"Directory group"}</div><h2 class="title">${esc(dLabel(d))}</h2>
+  <div style="display:flex;gap:6px;flex-wrap:wrap"><span class="chip acc">${ls.length} ${ls.length===1?"lodge":"lodges"}</span></div>
+  ${real?`<div class="section"><h3 class="sub">Trestle Board</h3>${!signedIn()?`<p class="locked">🔒 Sign in to see this Trestle Board.</p>`:`${posts.length?`<div class="stack" style="padding:0;gap:10px">${posts.map(postCard).join("")}</div>`:`<p class="hint">Nothing posted to the District ${esc(d)} board yet. Posts here reach every lodge in the district.</p>`}<div class="actions" style="margin-top:10px"><button class="btn ghost small" type="button" data-act="district-board" data-d="${esc(d)}">Open District ${esc(d)} Trestle Board</button></div>${mayPost?"":`<p class="hint" style="margin:8px 0 0">District officers can post here.</p>`}`}</div>`:""}
+  <div class="section"><h3 class="sub">Lodges</h3><div class="cards">${ls.map(l=>`<button type="button" class="card" data-lodge="${l.n}"><span class="t">${esc(lname(l))}</span><span class="isub">${esc(l.city||"—")}${l.meet?" · "+esc(l.meet):""}</span></button>`).join("")}</div></div>`}
 function item(l){
   const tags=[isMember(l)?`<span class="chip mem">${l.gl?"Officer":"Member"}</span>`:following(l)?`<span class="chip">Following</span>`:"",l.gl?`<span class="chip acc">Grand Lodge</span>`:l.pilot?`<span class="chip pilot">Pilot</span>`:"",lstatChip(l)].join(" ");
   return `<button type="button" class="item" data-lodge="${l.n}" aria-current="${S.sel===l.n}"><span class="num">${l.gl?"GL":l.n}</span>
@@ -1564,13 +1575,14 @@ function feedView(){
   const visible=S.posts.filter(canSeePost).sort((a,b)=>b.at.localeCompare(a.at));
   const atL=S.feedFilter.startsWith("at:")?byNum(+S.feedFilter.slice(3)):null;
   const atB=S.feedFilter.startsWith("ab:")?entById(S.feedFilter.slice(3)):null;
-  if(S.feedFilter!=="all"&&!atL&&!atB) S.feedFilter="all";
-  const shown=atB?visible.filter(p=>postReachesEnt(p,atB)):atL?visible.filter(p=>postReachesLodge(p,atL)):S.feedBoards?visible.filter(p=>S.feedBoards.includes(bKey(p.board))):visible;
+  const atD=S.feedFilter.startsWith("ad:")?S.feedFilter.slice(3):null;
+  if(S.feedFilter!=="all"&&!atL&&!atB&&!atD) S.feedFilter="all";
+  const shown=atD?visible.filter(p=>p.board.t==="district"&&p.board.id===atD):atB?visible.filter(p=>postReachesEnt(p,atB)):atL?visible.filter(p=>postReachesLodge(p,atL)):S.feedBoards?visible.filter(p=>S.feedBoards.includes(bKey(p.board))):visible;
   const grp=(t,label)=>{const g=can_.filter(b=>b.t===t);return g.length?`<optgroup label="${label}">${g.map(b=>`<option value="${bKey(b)}" ${bKey(b)===S.postTo?"selected":""}>${esc(bName(b))}</option>`).join("")}</optgroup>`:""};
   return `<div class="stack" style="max-width:680px">
     ${feedTabs()}
-    <div><h2 class="title" style="margin:0 0 6px">${atB?esc(atB.name)+" Trestle Board":atL?esc(lname(atL))+" Trestle Board":"Trestle Board"}</h2>
-      <p class="hint" style="margin:0">${atB?`Posts to this ${atB.lvl==="orient"?"Scottish Rite board":atB.lvl==="valley"?"Valley and the Texas Scottish Rite":"body, its Valley and the Texas Scottish Rite"}. <button class="linkbtn" type="button" data-act="feed-all">Show all my boards</button>`:atL?`Posts to this ${atL.gl?"board":"lodge, District "+esc(atL.d)+","} and the Grand Lodge. <button class="linkbtn" type="button" data-act="feed-all">Show all my boards</button>`:"Posts from your lodges, the lodges you follow, your district, and the Grand Lodge."}</p></div>
+    <div><h2 class="title" style="margin:0 0 6px">${atD?"District "+esc(atD)+" Trestle Board":atB?esc(atB.name)+" Trestle Board":atL?esc(lname(atL))+" Trestle Board":"Trestle Board"}</h2>
+      <p class="hint" style="margin:0">${atD?`Posts to District ${esc(atD)}, seen by every lodge in the district. <button class="linkbtn" type="button" data-act="feed-all">Show all my boards</button>`:atB?`Posts to this ${atB.lvl==="orient"?"Scottish Rite board":atB.lvl==="valley"?"Valley and the Texas Scottish Rite":"body, its Valley and the Texas Scottish Rite"}. <button class="linkbtn" type="button" data-act="feed-all">Show all my boards</button>`:atL?`Posts to this ${atL.gl?"board":"lodge, District "+esc(atL.d)+","} and the Grand Lodge. <button class="linkbtn" type="button" data-act="feed-all">Show all my boards</button>`:"Posts from your lodges, the lodges you follow, your district, and the Grand Lodge."}</p></div>
     ${can_.length?`<form class="panel pad" id="postform" style="display:grid;gap:10px">
       <div style="display:flex;gap:10px;align-items:flex-start"><span class="avatar">${pr?initials(pr.name):"SA"}</span>
         <textarea id="post-text" rows="3" style="flex:1" placeholder="Share something with the brethren..." aria-label="Post text"></textarea></div>
@@ -1582,7 +1594,7 @@ function feedView(){
         <button class="btn small" type="submit">Post</button></div>
       <p class="hint" style="margin:0" id="post-reach">Reaches: ${esc(bReach(bFromKey(S.postTo)))}.</p>
     </form>`:`<div class="panel pad hint">You can read the boards you follow, but there's no board you can post to yet.</div>`}
-    ${atL||atB?"":feedBar()}
+    ${atL||atB||atD?"":feedBar()}
     ${shown.length?shown.map(postCard).join(""):`<div class="panel empty">${S.feedBoards&&!atL?"No posts on the boards you have turned on.":"No posts yet. Be the first to post to your lodge's Trestle Board."}</div>`}
   </div>`;
 }
@@ -1649,7 +1661,7 @@ function adminView(){
 }
 
 /* ---------- events wiring ---------- */
-function openLodge(n){S.dirOpen=true;S.sel=+n;{const l0=byNum(+n);if(l0)(S.distOpen||(S.distOpen={}))[l0.d]=true}S.tab="dir";S.dist="";S.q="";S.dirFind=!signedIn()||!following(byNum(+n));UI.editing=false;UI.adding=null;render();document.getElementById("detail")?.scrollIntoView({block:"start"})}
+function openLodge(n){S.distPage=null;S.dirOpen=true;S.sel=+n;{const l0=byNum(+n);if(l0)(S.distOpen||(S.distOpen={}))[l0.d]=true}S.tab="dir";S.dist="";S.q="";S.dirFind=!signedIn()||!following(byNum(+n));UI.editing=false;UI.adding=null;render();document.getElementById("detail")?.scrollIntoView({block:"start"})}
 document.addEventListener("click",e=>{
   const ext=e.target.closest("a[data-ext]");
   if(ext){e.preventDefault();const w=window.open(ext.dataset.ext,"_blank");
@@ -1659,7 +1671,7 @@ document.addEventListener("click",e=>{
   if(UI.navMenu&&!e.target.closest(".tabgrp")){UI.navMenu=null;tabs()}
   const t=e.target.closest("[data-tab],[data-go],[data-lodge],[data-act],[data-lodge-open],[data-person],[data-day]"); if(!t) return;
   if(t.dataset.go){goTo(t.dataset.go);return}
-  if(t.dataset.tab){S.tab=t.dataset.tab;if(S.tab==="feed")S.feedFilter="all";if(S.tab==="bodies")S.bodyOpen=false;if(S.tab==="dir"){S.dirFind=false;S.dirOpen=false;S.dist="";S.q=""}UI={editing:false,editProfile:false,adding:null,confirmDel:null};render();return}
+  if(t.dataset.tab){S.tab=t.dataset.tab;if(S.tab==="feed")S.feedFilter="all";if(S.tab==="bodies")S.bodyOpen=false;if(S.tab==="dir"){S.dirFind=false;S.dirOpen=false;S.distPage=null;S.dist="";S.q=""}UI={editing:false,editProfile:false,adding:null,confirmDel:null};render();return}
   if(t.dataset.lodge){S.sel=+t.dataset.lodge;UI.editing=false;UI.adding=null;if(S.tab==="dir"&&S.dirFind)S.dirOpen=true;render();if(innerWidth<=820)document.getElementById("detail")?.scrollIntoView({behavior:"smooth"});return}
   if(t.dataset.lodgeOpen){openLodge(t.dataset.lodgeOpen);return}
   if(t.dataset.person&&t.dataset.person===me().profile){openProfile();return}
@@ -1681,9 +1693,12 @@ document.addEventListener("click",e=>{
     case "body-pick":{const b=bodyById(t.dataset.bid);if(b.t==="York Rite")(S.cityOpen||(S.cityOpen={}))[cityOf(b)]=true;if(b.lvl){const o=S.srOpen||(S.srOpen={});entChain(b).slice(1).forEach(i=>o[i]=true)}S.bodyT=b.t;S.bodyK="";S.bodyQ="";S.bodySel=b.id;S.bodyOpen=true;render();scrollTo(0,0);break}
     case "body-kind":S.bodyK=t.dataset.v;render();break;
     case "body-follow":{const a=(S.bodyFollows||(S.bodyFollows={}))[S.user]||(S.bodyFollows[S.user]=[]);const i=a.indexOf(t.dataset.bid),b=bodyById(t.dataset.bid);if(i>=0){a.splice(i,1);toast(`Unfollowed ${bodyTitle(b)}`)}else{a.push(t.dataset.bid);toast(`Following ${bodyTitle(b)}`)}render();break}
-    case "dir-find":S.dirFind=true;S.dirOpen=false;S.q="";S.dist="";render();break;
+    case "dir-find":S.dirFind=true;S.dirOpen=false;S.distPage=null;S.q="";S.dist="";render();break;
+    case "dist-open":S.distPage=t.dataset.d;S.dirOpen=false;render();scrollTo(0,0);break;
+    case "dist-list":S.distPage=null;render();scrollTo(0,0);break;
+    case "district-board":{const d=t.dataset.d;S.feedFilter="ad:"+d;if(boardsICanPost().some(b=>bKey(b)==="d:"+d))S.postTo="d:"+d;S.tab="feed";UI.editing=false;render();scrollTo(0,0);break}
     case "dir-list":S.dirOpen=false;UI.editing=false;render();scrollTo(0,0);break;
-    case "dir-mine":S.dirFind=false;S.dirOpen=false;render();break;
+    case "dir-mine":S.dirFind=false;S.dirOpen=false;S.distPage=null;render();break;
     case "menu":UI.menu=!UI.menu;renderAcct();break;
     case "navmenu":UI.navMenu=UI.navMenu===t.dataset.grp?null:t.dataset.grp;tabs();break;
     case "go-messages":{if(S.tab!=="messages"&&S.tab!=="profile"&&S.tab!=="account")S.prevTab=S.tab;S.tab="messages";S.newMsg=false;S.msgSel=null;UI={editing:false,editProfile:false,adding:null,confirmDel:null};render();scrollTo(0,0);break}
@@ -1750,7 +1765,7 @@ document.addEventListener("click",e=>{
     case "invite-cancel":{const pp=S.profiles[t.dataset.id],l=byNum(S.sel);if(pp&&pp.invited&&l&&canEdit(l)){delete S.profiles[t.dataset.id];S.apps=ensureApps().filter(x=>x.pid!==t.dataset.id);toast("Invitation canceled");render()}break}
     case "edit":UI.editing=true;render();break;
     case "cancel":UI.editing=false;render();break;
-    case "district":S.dist=l.d;S.q="";S.dirFind=true;S.dirOpen=false;render();scrollTo(0,0);break;
+    case "district":S.dist="";S.q="";S.dirFind=true;S.dirOpen=false;S.distPage=l.d;render();scrollTo(0,0);break;
     case "add-ev":UI.adding=t.dataset.n?+t.dataset.n:"cal";render();document.getElementById("ev-title")?.focus();break;
     case "cancel-ev":UI.adding=null;render();break;
     case "ask-del":UI.confirmDel=t.dataset.id;render();break;
