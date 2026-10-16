@@ -654,6 +654,16 @@ function canEdit(l){
   if(can("editOwnLodge")&&myLodges().includes(l.n)) return true;
   return false;
 }
+// Affiliation requests: only the Worshipful Master or Secretary of that lodge, or Grand Lodge level officers, can approve. Nobody approves their own request.
+const AFF_OFFICES=["Worshipful Master","Secretary"];
+function canApproveAff(l){
+  if(!signedIn()||!l||l.gl) return false;
+  if(can("editAnyLodge")) return true;
+  const p=myProfile(); if(!p) return false;
+  return (p.current||[]).some(c=>AFF_OFFICES.includes(String(c.title||"").trim())&&new RegExp("No\\.\\s*"+l.n+"\\b").test(String(c.body||"")));
+}
+const pendingAff=l=>Object.entries(S.profiles).filter(([id,p])=>p.lodges.some(x=>x.n===l.n&&x.pending));
+const myPendingAff=l=>{const p=myProfile();return !!p&&p.lodges.some(x=>x.n===l.n&&x.pending)};
 const isMember=l=>signedIn()&&myLodges().includes(l.n);
 const canSeePrivate=l=>(isMember(l)&&can("membersArea"))||can("editAnyLodge");
 const following=l=>isMember(l)||(S.follows[S.user]||[]).includes(l.n);
@@ -852,7 +862,7 @@ function myLodgesStrip(){
       <h3 class="sub" style="margin:0">My Lodges</h3>
       <div style="display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center"><span class="hint" style="margin:0">${esc(role().label)} · You can edit ${editable} ${editable===1?"lodge":"lodges"}${me().profile?` · <button class="linkbtn" type="button" data-person="${me().profile}">View my profile</button>`:""}</span><button class="btn small" type="button" data-act="dir-find">Find a lodge</button></div></div>
     <div style="display:grid;gap:6px"><span class="eyebrow" style="margin:0">Member of (${mem.length})</span>${mem.length?btns(mem):`<p class="hint" style="margin:0">You aren't a member of any lodge on the Hub yet.</p>`}</div>
-    <div style="display:grid;gap:6px"><span class="eyebrow" style="margin:0">Following (${fol.length})</span>${fol.length?btns(fol):`<p class="hint" style="margin:0">You aren't following any other lodges yet. Use Find a lodge and press Follow.</p>`}</div>
+    <div style="display:grid;gap:6px"><span class="eyebrow" style="margin:0">Following (${fol.length})</span>${fol.length?btns(fol):`<p class="hint" style="margin:0">You aren't following any other lodges yet. Use Find a lodge and press Follow.</p>`}</div>${(()=>{const w=L.filter(l=>canApproveAff(l)&&pendingAff(l).length);return w.length?`<div style="display:grid;gap:6px"><span class="eyebrow" style="margin:0">Affiliation requests waiting (${w.reduce((n,l)=>n+pendingAff(l).length,0)})</span><div style="display:flex;flex-wrap:wrap;gap:8px">${w.map(l=>`<button type="button" class="btn small" data-lodge-open="${l.n}">${esc(lname(l))} · ${pendingAff(l).length}</button>`).join("")}</div></div>`:""})()}
   </div>`;
 }
 function dirView(){
@@ -930,6 +940,12 @@ function officerManager(l){
   ${applicationsBlock(l)}
   <div class="section"><h3 class="sub">Members</h3><p class="hint" style="margin:0 0 10px">Everyone on this lodge's roster. Open a member to edit his profile if you have permission.</p>
   ${ros.length?`<div class="cards">${ros.map(([id,p])=>`<button type="button" class="card" data-person="${id}"><span style="display:flex;gap:10px;align-items:center"><span class="avatar">${initials(p.name)}</span><span class="t">${esc(p.name)}</span></span><span class="isub">${esc(officeIn(p,l)||"Member")}</span><span><span class="chip acc">${esc(DTITLE[degP(p)])}</span> ${p.invited?`<span class="chip">Invited, not signed in</span>`:`<span class="chip">Active</span>`} <span class="chip">Status changes: coming soon</span></span></button>${p.invited?`<span class="actions" style="margin:4px 0 12px;gap:6px"><button class="btn small ghost" type="button" data-act="invite-resend" data-id="${id}">Resend invitation</button><button class="btn small ghost" type="button" data-act="invite-cancel" data-id="${id}">Cancel invitation</button></span>`:""}`).join("")}</div>`:`<p class="hint">No members have joined on the Hub yet.</p>`}</div>`}
+function affSection(l){
+  if(canApproveAff(l)){const pend=pendingAff(l);
+    return `<div class="section"><h3 class="sub">Pending affiliations</h3>${pend.length?`<ul class="resume">${pend.map(([id,p])=>`<li><span><span class="what">${esc(p.name)}</span><br><span class="where">${p.lodges.find(x=>x.n===l.n&&x.pending).requested?"Requested "+new Date(p.lodges.find(x=>x.n===l.n&&x.pending).requested).toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"}):"Request on file"}${(p.lodges.filter(x=>!x.pending&&x.n&&byNum(x.n)&&!byNum(x.n).gl).map(x=>lname(byNum(x.n)))).length?" · Member of "+esc(p.lodges.filter(x=>!x.pending&&x.n&&byNum(x.n)&&!byNum(x.n).gl).map(x=>lname(byNum(x.n))).join(", ")):""}</span></span>
+      <span style="display:flex;gap:6px">${id===meP()?`<span class="hint" style="margin:0">Your own request. Another officer must approve it.</span>`:`<button class="btn small" type="button" data-act="aff-approve" data-pid="${id}" data-n="${l.n}">Approve</button><button class="btn ghost small" type="button" data-act="aff-decline" data-pid="${id}" data-n="${l.n}">Decline</button>`}</span></li>`).join("")}</ul><p class="hint" style="margin:8px 0 0">Approve only after the lodge has voted on the affiliation. Only this lodge's Master or Secretary, or a Grand Lodge officer, can approve.</p>`:`<p class="hint">No affiliation requests waiting.</p>`}</div>`}
+  if(myPendingAff(l)) return `<div class="section"><h3 class="sub">Your affiliation</h3><p class="hint">Your request is waiting for ${esc(l.name)}'s Master or Secretary to approve it.</p></div>`;
+  return ""}
 function lodgeDetail(){
   const l=byNum(S.sel); if(!l) return `<div class="empty">Pick a lodge from the list.</div>`;
   if(UI.editing&&canEdit(l)) return editLodgeForm(l);
@@ -937,6 +953,7 @@ function lodgeDetail(){
   if(!signedIn()) fb=`<button class="btn ghost" type="button" disabled>Sign in to follow</button>`;
   else if(isMember(l)) fb=`<button class="btn ghost" type="button" disabled>Following (member)</button>`;
   else fb=`<button class="btn ${following(l)?"ghost":""}" type="button" data-act="follow">${following(l)?"Unfollow":"Follow"}</button>`;
+  if(signedIn()&&!l.gl&&!isMember(l)&&myProfile()) fb+=myPendingAff(l)?` <button class="btn ghost" type="button" disabled>Affiliation pending</button>`:` <button class="btn ghost" type="button" data-act="aff-request" data-n="${l.n}">Request to affiliate</button>`;
   const roster=Object.entries(S.profiles).filter(([,p])=>p.lodges.some(x=>x.n===l.n&&!x.pending));
   return `<div class="eyebrow">${l.gl?"Statewide governing body":l.d==="Statewide"?"Statewide lodge":"District "+esc(l.d)} · ${esc(l.city||"")}${l.gl?"":" · "+esc(l.county||"")+" County"}</div>
   <h2 class="title">${l.gl?esc(l.name):`${esc(l.name)} Lodge No. ${l.n}`}</h2>
@@ -955,6 +972,7 @@ function lodgeDetail(){
   </dl>
   <div class="section"><h3 class="sub">Calendar</h3>${lodgeCal(l)}</div>
   ${l.gl?"":`<div class="section"><h3 class="sub">Officers</h3>${canSeePrivate(l)?officerList(l):`<p class="locked">🔒 Only members of ${esc(lname(l))} can see the officers.</p>`}</div>`}
+  ${l.gl?"":affSection(l)}
   <div class="section"><h3 class="sub">${l.gl?"Grand Lodge officers":"Members"}</h3>${l.gl||canSeePrivate(l)
     ?(roster.length?`<div class="cards">${roster.map(([id,p])=>personCard(id,p,l.n)).join("")}</div>`:`<p class="hint">No ${l.gl?"officers":"members"} have joined on the Hub yet.</p>`)
     :`<p class="locked">🔒 Only members of ${esc(lname(l))} can see the roster.</p>`}</div>
@@ -1621,6 +1639,12 @@ document.addEventListener("click",e=>{
     case "signout":S.user="public";S.tab="feed";UI={editing:false,editProfile:false,adding:null,confirmDel:null};render();scrollTo(0,0);toast("Signed out");break;
     case "signin":{S.user="mark";S.tab="feed";UI={editing:false,editProfile:false,adding:null,confirmDel:null};const ml=myLodges().filter(n=>n!==0);if(ml.length)S.sel=ml[0];if(me().profile)S.prof=me().profile;render();scrollTo(0,0);toast("Signed in as Mark (demo)");break}
     case "photo-remove":{saveAcct();const p=myProfile();ct(p,"photo").v="";logIt("removed their profile picture");render();break}
+    case "aff-request":{const pr=myProfile(),lo=byNum(+t.dataset.n);if(!pr||!lo)break;if(!pr.lodges.some(x=>x.n===lo.n)){pr.lodges.push({n:lo.n,since:"",pending:true,requested:new Date().toISOString()});logIt(`requested to affiliate with ${lname(lo)}`);toast(`Request sent to ${lname(lo)}`)}render();break}
+    case "aff-approve":case "aff-decline":{const lo=byNum(+t.dataset.n),pp=S.profiles[t.dataset.pid];if(!lo||!pp||!canApproveAff(lo)||t.dataset.pid===meP()){toast("Only this lodge's Master or Secretary can do that");break}
+      const i=pp.lodges.findIndex(x=>x.n===lo.n&&x.pending);if(i<0)break;
+      if(t.dataset.act==="aff-approve"){const x=pp.lodges[i];delete x.pending;x.since=String(new Date().getFullYear());x.approvedBy=meP()||me().label;x.approvedAt=new Date().toISOString();logIt(`approved ${pp.name}'s affiliation with ${lname(lo)}`);toast(`${pp.name} is now a member of ${lname(lo)}`)}
+      else{pp.lodges.splice(i,1);logIt(`declined ${pp.name}'s affiliation request with ${lname(lo)}`);toast("Request declined")}
+      render();break}
     case "follow":{const a=S.follows[S.user]||(S.follows[S.user]=[]);const i=a.indexOf(l.n);if(i>=0){a.splice(i,1);toast(`Unfollowed ${lname(l)}`)}else{a.push(l.n);toast(`Following ${lname(l)}`)}render();break}
     case "lodge-board":{const n=+t.dataset.n;S.feedFilter="at:"+n;const k=n===0?"gl":"l:"+n;if(boardsICanPost().some(b=>bKey(b)===k))S.postTo=k;S.tab="feed";UI.editing=false;render();scrollTo(0,0);break}
     case "feed-all":S.feedFilter="all";S.feedBoards=null;render();break;
