@@ -1601,8 +1601,8 @@ function feedView(){
       <div id="post-attach" style="display:grid;gap:8px">${attachHtml()}</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap"><label class="btn ghost small" style="cursor:pointer">📷 Photo<input type="file" id="post-photos" accept="image/*" multiple hidden></label><label class="btn ghost small" style="cursor:pointer">📎 File<input type="file" id="post-files" accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.csv" hidden></label><button class="btn ghost small" type="button" data-act="poll-on">📊 Poll</button></div>
       <div class="actions" style="margin:0;justify-content:space-between">
-        <label class="hint" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">Post to
-          <select id="post-to" aria-label="Post to">${grp("lodge","My lodges")}${grp("district","District")}${grp("gl","Grand Lodge")}${grp("orient","Texas Scottish Rite")}${grp("valley","Scottish Rite Valleys")}${grp("abody","Scottish Rite bodies")}</select></label>
+        ${(atL||atB||atD)&&S.postToFor===S.feedFilter&&S.postTo&&can_.some(b=>bKey(b)===S.postTo)&&(()=>{const f=atL?(atL.n===0?"gl":"l:"+atL.n):atD?"d:"+atD:atB?(atB.lvl==="orient"?"or":(atB.lvl==="valley"?"v:":"a:")+atB.id):"";return f===S.postTo})()?`<span class="hint">Posting to <b>${esc(bName(bFromKey(S.postTo)))}</b></span><input type="hidden" id="post-to" value="${esc(S.postTo)}">`:`<label class="hint" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">Post to
+          <select id="post-to" aria-label="Post to">${grp("lodge","My lodges")}${grp("district","District")}${grp("gl","Grand Lodge")}${grp("orient","Texas Scottish Rite")}${grp("valley","Scottish Rite Valleys")}${grp("abody","Scottish Rite bodies")}</select></label>`}
         <button class="btn small" type="submit">Post</button></div>
       <p class="hint" style="margin:0" id="post-reach">Reaches: ${esc(bReach(bFromKey(S.postTo)))}.</p>
     </form>`:`<div class="panel pad hint">You can read the boards you follow, but there's no board you can post to yet.</div>`}
