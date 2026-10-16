@@ -1386,6 +1386,7 @@ function refChoices(kind){const out=[];
   [...BODIES,...SRX].forEach(b=>out.push({t:"e",id:b.id}));
   return out.map(r=>({...r,label:refLabel(r)}))}
 function refLink(b,ref){
+  if(!ref){const m=/No\.\s*(\d+)\b/.exec(String(b||""));if(m&&byNum(+m[1]))ref={t:"l",id:+m[1]}}
   if(ref&&ref.t==="l"&&byNum(ref.id)) return `<button type="button" class="linklike" data-lodge-open="${ref.id}">${esc(b)}</button>`;
   if(ref&&ref.t==="e"&&entById(ref.id)) return `<button type="button" class="linklike" data-act="ent-open" data-bid="${esc(ref.id)}">${esc(b)}</button>`;
   return esc(b)}
