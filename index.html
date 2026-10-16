@@ -654,16 +654,44 @@ function canEdit(l){
   if(can("editOwnLodge")&&myLodges().includes(l.n)) return true;
   return false;
 }
-// Affiliation requests: only the Worshipful Master or Secretary of that lodge, or Grand Lodge level officers, can approve. Nobody approves their own request.
-const AFF_OFFICES=["Worshipful Master","Secretary"];
-function canApproveAff(l){
-  if(!signedIn()||!l||l.gl) return false;
-  if(can("editAnyLodge")) return true;
-  const p=myProfile(); if(!p) return false;
-  return (p.current||[]).some(c=>AFF_OFFICES.includes(String(c.title||"").trim())&&new RegExp("No\\.\\s*"+l.n+"\\b").test(String(c.body||"")));
-}
-const pendingAff=l=>Object.entries(S.profiles).filter(([id,p])=>p.lodges.some(x=>x.n===l.n&&x.pending));
-const myPendingAff=l=>{const p=myProfile();return !!p&&p.lodges.some(x=>x.n===l.n&&x.pending)};
+// ---- Positions, claims and approvals ----
+// Each lodge and appendant body has an editable list of positions. The first real member to claim a vacant position is approved on trust.
+// After that, claims (and requests to affiliate) wait for approval by a holder of an approving position. Test profiles never count.
+const POS_DEF={
+ Chapter:["High Priest","King","Scribe","Captain of the Host","Principal Sojourner","Royal Arch Captain","Master of the Third Veil","Master of the Second Veil","Master of the First Veil","Treasurer","Secretary","Chaplain","Sentinel"],
+ Council:["Thrice Illustrious Master","Deputy Illustrious Master","Principal Conductor of the Work","Treasurer","Recorder","Chaplain","Captain of the Guard","Conductor of the Council","Steward","Sentinel"],
+ Commandery:["Eminent Commander","Generalissimo","Captain General","Prelate","Senior Warden","Junior Warden","Treasurer","Recorder","Standard Bearer","Sword Bearer","Warder","Captain of the Guard","Sentinel"],
+ lop:["Thrice Potent Master","Senior Warden","Junior Warden","Orator","Treasurer","Secretary","Chaplain"],
+ rc:["Wise Master","Senior Warden","Junior Warden","Orator","Treasurer","Secretary","Chaplain"],
+ ck:["Commander","Senior Warden","Junior Warden","Orator","Treasurer","Secretary","Chaplain"],
+ cs:["Commander-in-Chief","First Lieutenant Commander","Second Lieutenant Commander","Orator","Treasurer","Secretary","Chaplain"],
+ valley:["Personal Representative","Secretary","Treasurer"],
+ orient:["Deputy of the Supreme Council","Secretary","Treasurer"],
+ Shrine:["Potentate","Chief Rabban","Assistant Rabban","High Priest and Prophet","Oriental Guide","Treasurer","Recorder"]};
+const refKey=r=>(r.t==="l"?"l:":"e:")+r.id;
+function posDefault(key){
+  if(key[0]==="l")return [...OFFICES];
+  const e=entById(key.slice(2));if(!e)return [];
+  if(e.t==="York Rite")return [...POS_DEF[e.k]];
+  if(e.t==="Shrine")return [...POS_DEF.Shrine];
+  if(e.lvl==="body")return [...POS_DEF[e.id.split("-").pop()]];
+  return [...(e.lvl==="valley"?POS_DEF.valley:POS_DEF.orient)]}
+const posList=key=>(S.positions&&S.positions[key])||posDefault(key);
+const authList=key=>(S.authority&&S.authority[key])||(key[0]==="l"?["Worshipful Master","Secretary"]:posList(key).filter((x,i)=>i===0||/Secretary|Recorder/i.test(x)));
+function holds(p,key){return (p.current||[]).concat(p.bodies||[]).filter(c=>(c.ref&&refKey(c.ref)===key)||(key[0]==="l"&&!c.ref&&new RegExp("No\\.\\s*"+key.slice(2)+"\\b").test(String(c.body||"")))).map(c=>String(c.title||"").trim())}
+const realProfiles=()=>Object.entries(S.profiles).filter(([,p])=>!p.sample);
+const hasRealAuth=key=>realProfiles().some(([,p])=>holds(p,key).some(t=>authList(key).includes(t)));
+function canApproveKey(key){
+  if(!signedIn())return false;
+  if(key[0]==="l"){const l=byNum(+key.slice(2));if(!l||l.gl)return false}
+  if(can("editAnyLodge"))return true;
+  const p=myProfile();return !!p&&holds(p,key).some(t=>authList(key).includes(t))}
+const canManagePos=key=>canApproveKey(key)||(key[0]==="l"&&canEdit(byNum(+key.slice(2))));
+function pendingPeople(key){const m={};
+  if(key[0]==="l"){const n=+key.slice(2);Object.entries(S.profiles).forEach(([id,p])=>{if(p.lodges.some(x=>x.n===n&&x.pending))m[id]={id,p,aff:true,claims:[]}})}
+  Object.entries(S.profiles).forEach(([id,p])=>(p.claims||[]).filter(c=>c.key===key).forEach(c=>{(m[id]=m[id]||{id,p,aff:false,claims:[]}).claims.push(c)}));
+  return Object.values(m)}
+const myPendingAff=l=>{const mp=meP();return !!mp&&pendingPeople("l:"+l.n).some(x=>x.id===mp)};
 const isMember=l=>signedIn()&&myLodges().includes(l.n);
 const canSeePrivate=l=>(isMember(l)&&can("membersArea"))||can("editAnyLodge");
 const following=l=>isMember(l)||(S.follows[S.user]||[]).includes(l.n);
@@ -751,8 +779,10 @@ function goTo(go){
   if(tab==="members"){S.tab="members";render();scrollTo(0,0);return}
   if(tab==="res"){S.tab="res";render();const el=document.getElementById("res-"+sub);if(el)el.scrollIntoView({block:"start"});else scrollTo(0,0);return}
 }
+function settleFirstClaims(){
+  realProfiles().forEach(([,p])=>p.lodges.forEach(x=>{if(x.pending&&x.n&&!hasRealAuth("l:"+x.n)){delete x.pending;x.since=x.since||String(new Date().getFullYear());x.approvedBy="first claim";x.approvedAt=new Date().toISOString()}}))}
 function render(){
-  L=lodges(); renderSwitcher(); renderAcct();
+  settleFirstClaims();L=lodges(); renderSwitcher(); renderAcct();
   const v=document.getElementById("view");
   document.body.classList.toggle("out",!signedIn());
   if(!signedIn()){document.getElementById("tabs").innerHTML="";v.innerHTML=loginView();save();return}
@@ -806,7 +836,8 @@ function bodyItem(b){
   return `<div class="tnode" style="display:flex;align-items:stretch;border-bottom:1px solid var(--line)"><button type="button" class="btn ghost small" style="border:0;border-radius:0;width:38px;flex:none;font-size:15px" data-act="sr-toggle" data-bid="${b.id}" aria-expanded="${open}" aria-label="${open?"Collapse":"Expand"} ${esc(b.name)}">${open?"▾":"▸"}</button>${row}</div>`}
 const wrapK=(h,d)=>d>0?`<div class="tk">${wrapK(h,d-1)}</div>`:h;
 const bDepth=b=>{if(b.cityNode)return 0;if(S.bodyT==="York Rite")return 1;if(S.bodyT==="Scottish Rite"&&!(S.bodyQ||"").trim())return b.lvl==="orient"?0:b.lvl==="valley"?1:2;return 0};
-const bodyListHtml=l=>l.length?l.map(b=>wrapK(bodyItem(b),bDepth(b))).join(""):`<div class="empty">No bodies match that search.</div>`;
+const bIsNode=b=>b.cityNode||b.lvl==="orient"||b.lvl==="valley";
+const bodyListHtml=l=>l.length?l.map(b=>{const d=bDepth(b);let h=bodyItem(b);if(d>0&&!bIsNode(b))h=`<div style="display:flex;align-items:stretch"><span style="width:38px;flex:none"></span><div style="flex:1;min-width:0">${h}</div></div>`;return wrapK(h,d)}).join(""):`<div class="empty">No bodies match that search.</div>`;
 function cityDetail(c){const g=CITYS.find(x=>x.c===c);if(!g)return `<div class="empty">Pick a city.</div>`;
   return `<div class="eyebrow">York Rite · City</div><h2 class="title">${esc(c)}</h2><p class="hint" style="margin:0 0 6px">${g.ents.length} York Rite bod${g.ents.length===1?"y":"ies"} ${c===NOCITY?"in this group":"in "+esc(c)}.</p>${["Chapter","Council","Commandery"].map(k=>{const es=g.ents.filter(e=>e.k===k);return es.length?`<div class="section"><h3 class="sub">${k.replace(/y$/,"ie")+"s"}</h3><div class="cards">${es.map(e=>`<button type="button" class="card" data-act="body-sel" data-bid="${e.id}"><span class="t">${esc(bodyTitle(e))}</span><span class="isub">${esc(BKIND[k])}</span></button>`).join("")}</div></div>`:""}).join("")}`}
 function bodyDetail(){
@@ -828,7 +859,7 @@ function bodyDetail(){
     ${b.n!=null?`<dt>Number</dt><dd>${b.n}</dd>`:""}<dt>City</dt><dd>${b.t==="York Rite"&&b.city&&CITYS.some(x=>x.c===b.city)?`<button class="linkbtn" type="button" data-act="city-open" data-city="${esc(b.city)}">${esc(b.city)}</button>`:b.city?esc(b.city):`<span class="unset">Not listed</span>`}</dd>
     <dt>Website</dt><dd>${web?`<a href="#" data-ext="${esc(web)}">${esc(b.web)}</a>`:`<span class="unset">Not set yet</span>`}</dd>
     <dt>Meeting</dt><dd><span class="unset">Not set yet</span></dd></dl>
-  ${srx}<div class="section"><h3 class="sub">Calendar</h3><p class="hint">Coming next. Events and posts from the bodies you follow will show up on your Trestle Board and Calendar next to your lodges.</p></div>
+  ${srx}${bodyOfficers("e:"+b.id)}${pendSection("e:"+b.id,bodyTitle(b))}${posManager("e:"+b.id)}<div class="section"><h3 class="sub">Calendar</h3><p class="hint">Coming next. Events and posts from the bodies you follow will show up on your Trestle Board and Calendar next to your lodges.</p></div>
   <p class="hint" style="margin-top:16px">Listing source: ${esc(src)}. Names and cities were copied from a web listing and may be out of date. Please report anything wrong.</p>`}
 const BLAND={"Shrine":["Shrine","Shriners temples across Texas, including the Shriners Hospitals mission."],"Scottish Rite":["Scottish Rite","The Texas Scottish Rite, its Valleys, and the four bodies in each Valley."],"York Rite":["York Rite","Royal Arch Chapters, Councils of Royal & Select Masters and Commanderies of Knights Templar."]};
 function bodiesLanding(fl){
@@ -862,7 +893,7 @@ function myLodgesStrip(){
       <h3 class="sub" style="margin:0">My Lodges</h3>
       <div style="display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center"><span class="hint" style="margin:0">${esc(role().label)} · You can edit ${editable} ${editable===1?"lodge":"lodges"}${me().profile?` · <button class="linkbtn" type="button" data-person="${me().profile}">View my profile</button>`:""}</span><button class="btn small" type="button" data-act="dir-find">Find a lodge</button></div></div>
     <div style="display:grid;gap:6px"><span class="eyebrow" style="margin:0">Member of (${mem.length})</span>${mem.length?btns(mem):`<p class="hint" style="margin:0">You aren't a member of any lodge on the Hub yet.</p>`}</div>
-    <div style="display:grid;gap:6px"><span class="eyebrow" style="margin:0">Following (${fol.length})</span>${fol.length?btns(fol):`<p class="hint" style="margin:0">You aren't following any other lodges yet. Use Find a lodge and press Follow.</p>`}</div>${(()=>{const w=L.filter(l=>canApproveAff(l)&&pendingAff(l).length);return w.length?`<div style="display:grid;gap:6px"><span class="eyebrow" style="margin:0">Affiliation requests waiting (${w.reduce((n,l)=>n+pendingAff(l).length,0)})</span><div style="display:flex;flex-wrap:wrap;gap:8px">${w.map(l=>`<button type="button" class="btn small" data-lodge-open="${l.n}">${esc(lname(l))} · ${pendingAff(l).length}</button>`).join("")}</div></div>`:""})()}
+    <div style="display:grid;gap:6px"><span class="eyebrow" style="margin:0">Following (${fol.length})</span>${fol.length?btns(fol):`<p class="hint" style="margin:0">You aren't following any other lodges yet. Use Find a lodge and press Follow.</p>`}</div>${(()=>{const w=L.filter(l=>canApproveKey("l:"+l.n)&&pendingPeople("l:"+l.n).length);return w.length?`<div style="display:grid;gap:6px"><span class="eyebrow" style="margin:0">Requests waiting (${w.reduce((n,l)=>n+pendingPeople("l:"+l.n).length,0)})</span><div style="display:flex;flex-wrap:wrap;gap:8px">${w.map(l=>`<button type="button" class="btn small" data-lodge-open="${l.n}">${esc(lname(l))} · ${pendingPeople("l:"+l.n).length}</button>`).join("")}</div></div>`:""})()}
   </div>`;
 }
 function dirView(){
@@ -940,12 +971,24 @@ function officerManager(l){
   ${applicationsBlock(l)}
   <div class="section"><h3 class="sub">Members</h3><p class="hint" style="margin:0 0 10px">Everyone on this lodge's roster. Open a member to edit his profile if you have permission.</p>
   ${ros.length?`<div class="cards">${ros.map(([id,p])=>`<button type="button" class="card" data-person="${id}"><span style="display:flex;gap:10px;align-items:center"><span class="avatar">${initials(p.name)}</span><span class="t">${esc(p.name)}</span></span><span class="isub">${esc(officeIn(p,l)||"Member")}</span><span><span class="chip acc">${esc(DTITLE[degP(p)])}</span> ${p.invited?`<span class="chip">Invited, not signed in</span>`:`<span class="chip">Active</span>`} <span class="chip">Status changes: coming soon</span></span></button>${p.invited?`<span class="actions" style="margin:4px 0 12px;gap:6px"><button class="btn small ghost" type="button" data-act="invite-resend" data-id="${id}">Resend invitation</button><button class="btn small ghost" type="button" data-act="invite-cancel" data-id="${id}">Cancel invitation</button></span>`:""}`).join("")}</div>`:`<p class="hint">No members have joined on the Hub yet.</p>`}</div>`}
-function affSection(l){
-  if(canApproveAff(l)){const pend=pendingAff(l);
-    return `<div class="section"><h3 class="sub">Pending affiliations</h3>${pend.length?`<ul class="resume">${pend.map(([id,p])=>`<li><span><span class="what">${esc(p.name)}</span><br><span class="where">${p.lodges.find(x=>x.n===l.n&&x.pending).requested?"Requested "+new Date(p.lodges.find(x=>x.n===l.n&&x.pending).requested).toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"}):"Request on file"}${(p.lodges.filter(x=>!x.pending&&x.n&&byNum(x.n)&&!byNum(x.n).gl).map(x=>lname(byNum(x.n)))).length?" · Member of "+esc(p.lodges.filter(x=>!x.pending&&x.n&&byNum(x.n)&&!byNum(x.n).gl).map(x=>lname(byNum(x.n))).join(", ")):""}</span></span>
-      <span style="display:flex;gap:6px">${id===meP()?`<span class="hint" style="margin:0">Your own request. Another officer must approve it.</span>`:`<button class="btn small" type="button" data-act="aff-approve" data-pid="${id}" data-n="${l.n}">Approve</button><button class="btn ghost small" type="button" data-act="aff-decline" data-pid="${id}" data-n="${l.n}">Decline</button>`}</span></li>`).join("")}</ul><p class="hint" style="margin:8px 0 0">Approve only after the lodge has voted on the affiliation. Only this lodge's Master or Secretary, or a Grand Lodge officer, can approve.</p>`:`<p class="hint">No affiliation requests waiting.</p>`}</div>`}
-  if(myPendingAff(l)) return `<div class="section"><h3 class="sub">Your affiliation</h3><p class="hint">Your request is waiting for ${esc(l.name)}'s Master or Secretary to approve it.</p></div>`;
+function pendSection(key,name){
+  const mine=meP();
+  if(canApproveKey(key)){const pp=pendingPeople(key);
+    return `<div class="section"><h3 class="sub">Pending requests</h3>${pp.length?`<ul class="resume">${pp.map(x=>`<li><span><span class="what">${esc(x.p.name)}${x.p.sample?` <span class="chip pilot">Test profile</span>`:""}</span><br><span class="where">${[x.aff?"Wants to affiliate":"",...x.claims.map(c=>"Claims "+esc(c.title))].filter(Boolean).join(" · ")}</span></span>
+      <span style="display:flex;gap:6px">${x.id===mine?`<span class="hint" style="margin:0">Your own request. Another officer must approve it.</span>`:`<button class="btn small" type="button" data-act="req-approve" data-pid="${x.id}" data-key="${esc(key)}">Approve</button><button class="btn ghost small" type="button" data-act="req-decline" data-pid="${x.id}" data-key="${esc(key)}">Decline</button>`}</span></li>`).join("")}</ul><p class="hint" style="margin:8px 0 0">Only holders of an approving position, or a Grand Lodge officer, can approve.</p>`:`<p class="hint">No requests waiting.</p>`}</div>`}
+  if(mine&&pendingPeople(key).some(x=>x.id===mine)) return `<div class="section"><h3 class="sub">Your request</h3><p class="hint">Waiting for an officer of ${esc(name)} to approve it.</p></div>`;
   return ""}
+function posManager(key){
+  if(!canManagePos(key))return "";
+  const pos=posList(key),auth=authList(key),what=key[0]==="l"?"lodge":"body";
+  return `<div class="section"><details><summary style="cursor:pointer;font-weight:600">Positions and who can approve</summary><form id="posform" data-key="${esc(key)}" style="display:grid;gap:10px;margin-top:10px">
+    <label>Positions at this ${what}, one per line in order<textarea name="pos" rows="${Math.min(16,pos.length+1)}" style="width:100%">${esc(pos.join("\n"))}</textarea></label>
+    <div><span class="eyebrow" style="margin:0">Positions that can approve requests</span><div style="display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:6px">${pos.map(x=>`<label style="display:flex;gap:6px;align-items:center;font-size:14px"><input type="checkbox" name="auth" value="${esc(x)}" ${auth.includes(x)?"checked":""}> ${esc(x)}</label>`).join("")}</div><span class="hint">If you add or rename positions, save first, then tick who can approve.</span></div>
+    <div class="actions" style="margin:0"><button class="btn small" type="submit">Save positions</button><button class="btn ghost small" type="button" data-act="pos-reset" data-key="${esc(key)}">Reset to common</button></div></form></details></div>`}
+function bodyOfficers(key){
+  if(!signedIn())return "";
+  const rows=posList(key).map(pos=>({pos,who:Object.entries(S.profiles).filter(([,q])=>holds(q,key).includes(pos))})).filter(r=>r.who.length);
+  return `<div class="section"><h3 class="sub">Officers</h3>${rows.length?`<ul class="resume">${rows.map(r=>`<li><span class="what">${esc(r.pos)}</span><span>${r.who.map(([id,q])=>`<button type="button" class="linkbtn" data-person="${id}">${esc(q.name)}</button>${q.sample?` <span class="chip pilot">Test</span>`:""}`).join(", ")}</span></li>`).join("")}</ul>`:`<p class="hint">No officers registered yet. The first member to claim a position here is approved automatically.</p>`}</div>`}
 function lodgeDetail(){
   const l=byNum(S.sel); if(!l) return `<div class="empty">Pick a lodge from the list.</div>`;
   if(UI.editing&&canEdit(l)) return editLodgeForm(l);
@@ -972,7 +1015,7 @@ function lodgeDetail(){
   </dl>
   <div class="section"><h3 class="sub">Calendar</h3>${lodgeCal(l)}</div>
   ${l.gl?"":`<div class="section"><h3 class="sub">Officers</h3>${canSeePrivate(l)?officerList(l):`<p class="locked">🔒 Only members of ${esc(lname(l))} can see the officers.</p>`}</div>`}
-  ${l.gl?"":affSection(l)}
+  ${l.gl?"":pendSection("l:"+l.n,lname(l))}${l.gl?"":posManager("l:"+l.n)}
   <div class="section"><h3 class="sub">${l.gl?"Grand Lodge officers":"Members"}</h3>${l.gl||canSeePrivate(l)
     ?(roster.length?`<div class="cards">${roster.map(([id,p])=>personCard(id,p,l.n)).join("")}</div>`:`<p class="hint">No ${l.gl?"officers":"members"} have joined on the Hub yet.</p>`)
     :`<p class="locked">🔒 Only members of ${esc(lname(l))} can see the roster.</p>`}</div>
@@ -981,7 +1024,7 @@ function lodgeDetail(){
 }
 function personCard(id,p,n){const m=p.lodges.find(x=>x.n===n);const lo=n?byNum(n):null,off=lo&&!lo.gl?officeIn(p,lo):"";const cur=off?{title:off}:((n===0?p.current.find(c=>/grand lodge/i.test(c.body)):null)||p.current[0]);
   return `<button type="button" class="card" data-person="${id}"><span style="display:flex;gap:10px;align-items:center"><span class="avatar">${initials(p.name)}</span><span class="t">${esc(p.name)}</span></span>
-  <span class="isub">${cur?esc(cur.title):"Member"}${m?.since?` · since ${esc(m.since)}`:""}</span></button>`}
+  <span class="isub">${cur?esc(cur.title):"Member"}${m?.since?` · since ${esc(m.since)}`:""}${p.sample?` · <b>Test profile</b>`:""}</span></button>`}
 function editLodgeForm(l){
   const moveOk=can("editAnyLodge");
   return `<div class="eyebrow">Editing</div><h2 class="title">${esc(lname(l))}</h2>
@@ -1337,12 +1380,20 @@ function resumeList(arr,kind,editable){
 }
 function addRow(kind){
   const isCert=kind==="certs";
+  if(isCert) return `<form class="inline-form" data-add="${kind}" style="margin-top:10px"><label>Certificate<input type="text" name="a" required></label><label>Year<input type="text" name="c" style="width:110px"></label><button class="btn small" type="submit">Add</button></form>`;
   return `<form class="inline-form" data-add="${kind}" style="margin-top:10px">
-    <label>${isCert?"Certificate":kind==="bodies"?"Role or title":"Title"}<input type="text" name="a" required></label>
-    ${isCert?"":`<label>${kind==="bodies"?"Body (Scottish Rite, York Rite, Shrine…)":"Lodge or body"}<input type="text" name="b" list="ref-${kind}" autocomplete="off" placeholder="Start typing, then pick from the list"><datalist id="ref-${kind}">${refChoices(kind).map(r=>`<option value="${esc(r.label)}"></option>`).join("")}</datalist></label>`}
+    <label>${kind==="bodies"?"Body (Scottish Rite, York Rite, Shrine…)":"Lodge or body"}<input type="text" name="b" list="ref-${kind}" autocomplete="off" placeholder="Start typing, then pick from the list"><datalist id="ref-${kind}">${refChoices(kind).map(r=>`<option value="${esc(r.label)}"></option>`).join("")}</datalist></label>
+    <label>${kind==="bodies"?"Role or title":"Title"}<select name="a"><option value="__other">Other (type your own)</option></select></label>
+    <label data-other>Your title<input type="text" name="a2"></label>
     <label>${kind==="past"?"Years":"Year"}<input type="text" name="c" style="width:110px"></label>
     <button class="btn small" type="submit">Add</button></form>`;
 }
+function syncPos(f,from){
+  const sel=f.querySelector('select[name=a]'),b=f.querySelector('[name=b]'),oth=f.querySelector('[data-other]');if(!sel)return;
+  if(from==="b"){const m=refChoices(f.dataset.add).find(r=>r.label.toLowerCase()===b.value.trim().toLowerCase()),keep=sel.value;
+    const opts=m?posList(refKey(m)):[];sel.innerHTML=opts.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join("")+`<option value="__other">Other (type your own)</option>`;
+    sel.value=opts.includes(keep)?keep:(opts[0]||"__other")}
+  oth.style.display=sel.value==="__other"?"":"none"}
 const canSeeLogin=id=>signedIn()&&(me().profile===id||can("manageRoles")||canSetDegree(id));
 function lastSeen(id){const p=S.profiles[id];if(!p)return "";
   let iso=p.lastLogin,sample=false;
@@ -1361,7 +1412,7 @@ function profileDetail(id){
   const fields=[["email","Email"],["phone","Phone"],["address","Address"]];
   const seen=fields.filter(([f])=>valOf(p,f)&&canSeeField(id,f)), hidden=fields.filter(([f])=>valOf(p,f)&&!canSeeField(id,f)).length;
   return `<div class="profile-head">${avatarFor(id,"big")}<div style="min-width:0"><div class="eyebrow">Masonic record</div><h2 class="title" style="margin:2px 0 4px">${esc(p.name)}</h2>
-    <div style="display:flex;gap:6px;flex-wrap:wrap"><span class="chip acc">${esc(DTITLE[degP(p)]||"Degree not on record")}</span>${p.sample?`<span class="chip">Sample profile</span>`:""}${own?`<span class="chip mem">This is you</span>`:""}</div></div></div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap"><span class="chip acc">${esc(DTITLE[degP(p)]||"Degree not on record")}</span>${p.sample?`<span class="chip pilot">Test profile</span><span class="hint" style="flex-basis:100%;margin:2px 0 0">This is a test profile waiting for someone to delete it. It does not count as a real member or officer.</span>`:""}${own?`<span class="chip mem">This is you</span>`:""}</div></div></div>
   ${canEd?`<div class="actions" style="margin-top:14px">${ed?`<button class="btn" type="button" data-act="done-prof">Done editing</button>`:`<button class="btn ghost" type="button" data-act="edit-prof">${own?"Edit my profile":"Edit this profile (admin)"}</button>`}</div>`:""}
   <div class="section"><h3 class="sub">Degree on record</h3>${canSetDegree(id)?`<label style="display:grid;gap:4px;max-width:320px"><select id="prof-degree" data-pid="${id}" aria-label="Degree on record">${Object.keys(DTITLE).map(k=>`<option value="${k}" ${degP(p)===k?"selected":""}>${DTITLE[k]}</option>`).join("")}</select><span class="hint">Set by the lodge secretary or another officer who can edit this lodge. It decides what he can see and do on the Trestle Board. An Entered Apprentice or Fellowcraft belongs to the lodge that made him and can follow other lodges but cannot join one without a Grand Lodge dispensation.</span></label>`:`<p style="margin:0"><b>${esc(DTITLE[degP(p)]||"Not on record")}</b></p><p class="hint" style="margin:4px 0 0">Your lodge secretary keeps this on record. ${degP(p)==="MM"?"":`It limits what you can see and do: mentoring (you can have a mentor but can't be one), resources and drills for your degree only.`}</p>`}</div>
   ${canSeeLogin(id)?`<div class="section"><h3 class="sub">Last sign-in</h3><p style="margin:0">${esc(lastSeen(id))}</p><p class="hint" style="margin:4px 0 0">${own?"Your lodge officers and district officers can see when you last signed in.":"Visible to this lodge's officers, district officers and Grand Lodge officers."}</p></div>`:""}
@@ -1640,11 +1691,16 @@ document.addEventListener("click",e=>{
     case "signin":{S.user="mark";S.tab="feed";UI={editing:false,editProfile:false,adding:null,confirmDel:null};const ml=myLodges().filter(n=>n!==0);if(ml.length)S.sel=ml[0];if(me().profile)S.prof=me().profile;render();scrollTo(0,0);toast("Signed in as Mark (demo)");break}
     case "photo-remove":{saveAcct();const p=myProfile();ct(p,"photo").v="";logIt("removed their profile picture");render();break}
     case "aff-request":{const pr=myProfile(),lo=byNum(+t.dataset.n);if(!pr||!lo)break;if(!pr.lodges.some(x=>x.n===lo.n)){pr.lodges.push({n:lo.n,since:"",pending:true,requested:new Date().toISOString()});logIt(`requested to affiliate with ${lname(lo)}`);toast(`Request sent to ${lname(lo)}`)}render();break}
-    case "aff-approve":case "aff-decline":{const lo=byNum(+t.dataset.n),pp=S.profiles[t.dataset.pid];if(!lo||!pp||!canApproveAff(lo)||t.dataset.pid===meP()){toast("Only this lodge's Master or Secretary can do that");break}
-      const i=pp.lodges.findIndex(x=>x.n===lo.n&&x.pending);if(i<0)break;
-      if(t.dataset.act==="aff-approve"){const x=pp.lodges[i];delete x.pending;x.since=String(new Date().getFullYear());x.approvedBy=meP()||me().label;x.approvedAt=new Date().toISOString();logIt(`approved ${pp.name}'s affiliation with ${lname(lo)}`);toast(`${pp.name} is now a member of ${lname(lo)}`)}
-      else{pp.lodges.splice(i,1);logIt(`declined ${pp.name}'s affiliation request with ${lname(lo)}`);toast("Request declined")}
+    case "req-approve":case "req-decline":{const key=t.dataset.key,pp=S.profiles[t.dataset.pid];if(!pp||!canApproveKey(key)||t.dataset.pid===meP()){toast("Only an officer with approval authority can do that");break}
+      const ent=key[0]==="l"?lname(byNum(+key.slice(2))):bodyTitle(entById(key.slice(2)));
+      const li=key[0]==="l"?pp.lodges.findIndex(x=>x.n===+key.slice(2)&&x.pending):-1,mine=(pp.claims||[]).filter(c=>c.key===key);
+      if(t.dataset.act==="req-approve"){
+        if(li>=0){const x=pp.lodges[li];delete x.pending;x.since=String(new Date().getFullYear());x.approvedBy=meP()||me().label;x.approvedAt=new Date().toISOString()}
+        mine.forEach(c=>{const kind=c.kind;pp[kind].push({title:c.title,body:c.body,ref:c.ref,year:c.year})});
+        pp.claims=(pp.claims||[]).filter(c=>c.key!==key);logIt(`approved ${pp.name} at ${ent}`);toast(`Approved ${pp.name}`)}
+      else{if(li>=0)pp.lodges.splice(li,1);pp.claims=(pp.claims||[]).filter(c=>c.key!==key);logIt(`declined ${pp.name}'s request at ${ent}`);toast("Request declined")}
       render();break}
+    case "pos-reset":{const key=t.dataset.key;if(!canManagePos(key))break;if(S.positions)delete S.positions[key];if(S.authority)delete S.authority[key];logIt("reset the positions list to the common set");toast("Positions reset");render();break}
     case "follow":{const a=S.follows[S.user]||(S.follows[S.user]=[]);const i=a.indexOf(l.n);if(i>=0){a.splice(i,1);toast(`Unfollowed ${lname(l)}`)}else{a.push(l.n);toast(`Following ${lname(l)}`)}render();break}
     case "lodge-board":{const n=+t.dataset.n;S.feedFilter="at:"+n;const k=n===0?"gl":"l:"+n;if(boardsICanPost().some(b=>bKey(b)===k))S.postTo=k;S.tab="feed";UI.editing=false;render();scrollTo(0,0);break}
     case "feed-all":S.feedFilter="all";S.feedBoards=null;render();break;
@@ -1758,15 +1814,34 @@ document.addEventListener("submit",e=>{
     readContact(p,"c",id=>v(id));
     logIt(me().profile===S.prof?"updated their profile":`updated ${p.name}'s profile as Super Admin`); toast("Profile saved"); render(); return;
   }
+  if(f.id==="posform"){const key=f.dataset.key;if(!canManagePos(key))return;const fd=new FormData(f);
+    const lines=[...new Set(String(fd.get("pos")||"").split("\n").map(x=>x.trim()).filter(Boolean))];if(!lines.length){toast("Keep at least one position");return}
+    const auth=fd.getAll("auth").filter(x=>lines.includes(x));
+    (S.positions||(S.positions={}))[key]=lines;
+    if(auth.length)(S.authority||(S.authority={}))[key]=auth;else if(S.authority)delete S.authority[key];
+    logIt("updated the positions list");toast("Positions saved");render();return}
   if(f.dataset.add){
-    const p=editTarget(); if(!p) return; const fd=new FormData(f); const a=(fd.get("a")||"").trim(); if(!a) return;
-    const kind=f.dataset.add;
+    const p=editTarget(); if(!p) return; const fd=new FormData(f); const kind=f.dataset.add;
+    const a=(kind==="certs"?(fd.get("a")||""):(fd.get("a")==="__other"?(fd.get("a2")||""):(fd.get("a")||""))).trim(); if(!a){toast("Choose or type a title");return}
     let bv=(fd.get("b")||"").trim(),ref=null;
     if(kind!=="certs"&&bv){const m=refChoices(kind).find(r=>r.label.toLowerCase()===bv.toLowerCase());
       if(!m){toast("Pick a lodge or body from the list so it links to its page");return}
       ref={t:m.t,id:m.id};bv=m.label}
-    p[kind].push(kind==="certs"?{name:a,year:(fd.get("c")||"").trim()}:{title:a,body:bv,ref,year:(fd.get("c")||"").trim()});
-    logIt(`added "${a}" to their profile`); toast("Added"); render(); return;
+    const year=(fd.get("c")||"").trim(),now=new Date().toISOString();
+    if(kind==="certs"){p.certs.push({name:a,year});toast("Added");render();return}
+    if(kind==="past"||!ref){p[kind].push({title:a,body:bv,ref,year});logIt(`added "${a}" to their profile`);toast("Added");render();return}
+    const key=refKey(ref),isL=ref.t==="l";
+    if(holds(p,key).includes(a)){toast("That position is already on your profile");return}
+    if((p.claims||[]).some(c=>c.key===key&&c.title===a)){toast("You already have a request waiting for that");return}
+    const member=!isL||p.lodges.some(x=>x.n===ref.id&&!x.pending);
+    const taken=realProfiles().some(([id,q])=>q!==p&&holds(q,key).includes(a));
+    const queue=()=>{(p.claims||(p.claims=[])).push({key,kind,title:a,body:bv,ref,year,requested:now});if(isL&&!p.lodges.some(x=>x.n===ref.id))p.lodges.push({n:ref.id,since:"",pending:true,requested:now});logIt(`asked to be ${a} at ${bv}`);toast(`Request sent. An officer of ${bv} will approve it.`)};
+    if(!member){
+      if(!hasRealAuth(key)){p.lodges.push({n:ref.id,since:String(new Date().getFullYear()),approvedBy:"first claim",approvedAt:now});p[kind].push({title:a,body:bv,ref,year});logIt(`was first to claim ${a} at ${bv}`);toast(`You are the first to claim ${a} at ${bv}. Approved automatically.`)}
+      else queue();
+    }else if(taken)queue();
+    else{p[kind].push({title:a,body:bv,ref,year});logIt(`claimed ${a} at ${bv}`);toast(hasRealAuth(key)?"Added":`You are the first to claim ${a}. Approved automatically.`)}
+    render();return
   }
   if(f.id==="postform"){
     const text=v("post-text"); let poll=null;
@@ -1806,6 +1881,8 @@ document.addEventListener("change",e=>{
   if(t.dataset.perm){const r=S.roles[t.dataset.role];r.perms[t.dataset.perm]=t.checked?1:0;
     logIt(`${t.checked?"gave":"removed"} "${PERMS.find(p=>p[0]===t.dataset.perm)[1]}" ${t.checked?"to":"from"} ${r.label}`);render();}
 });
+document.addEventListener("input",e=>{const f=e.target.closest&&e.target.closest("form[data-add]");if(f&&(e.target.name==="b"||e.target.name==="a"))syncPos(f,e.target.name)});
+document.addEventListener("change",e=>{const f=e.target.closest&&e.target.closest("form[data-add]");if(f&&(e.target.name==="b"||e.target.name==="a"))syncPos(f,e.target.name)});
 document.addEventListener("input",e=>{
   if(e.target.id==="bq"){S.bodyQ=e.target.value;const l=bodyFiltered();document.getElementById("blist").innerHTML=bodyListHtml(l);document.getElementById("bcount").textContent=bodyCount(l);save();return}
   if(e.target.id==="q"){S.q=e.target.value;const list=filtered();document.getElementById("list").innerHTML=listHtml(list);document.querySelector(".count").textContent=`${list.length} of ${L.length} lodges`;save();}
