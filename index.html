@@ -1404,7 +1404,7 @@ function feedView(){
 }
 
 /* ---------- resources ---------- */
-const RES=[
+const RES0=[
   {sec:"Texas Monitor",note:"The Monitor of the Lodge and the tools to learn it. The digital Monitor is a reference aid and the drills are a memorization aid. Neither replaces your printed Monitor, so always check it.",items:[
     ["Digital Monitor","The Monitor of the Lodge, section by section, word for word. Edition on file: "+MON.edition.label+".","app:monitor","Open Monitor"],
     ["Full Monitor (PDF)","The complete scanned Texas Monitor (PDF), opens from Mark's Google Drive.","https://drive.google.com/file/d/1NyFtGuA-am8dcGu9MFOyglq5k9yOiflc/view"],
@@ -1428,13 +1428,14 @@ const RES=[
     ["Masonic charities","Grand Lodge relief programs and how to request help for a brother or widow."],
     ["Youth programs","DeMolay, Rainbow and Job's Daughters in Texas."]]}
 ];
+const RES=RES0.filter(s=>s.sec!=="Texas Monitor"||MON.sections.length);
 const resOk=min=>!min||!signedIn()||(DRANK[degreeOf()]||0)>=DRANK[min];
 const resItems=g=>g.items.filter(it=>resOk(it[4]||g.min));
 function resView(){
   return `<div class="stack"><div><h2 class="title" style="margin:0 0 6px">Resources</h2>
     <p class="hint" style="margin:0">Study materials and Grand Lodge resources for Texas Masons.${signedIn()?"":" Sign in to open them once they're added."}</p></div>
-    ${RES.map((g,gi)=>resItems(g).length?`<div id="res-${gi}" class="${gi===0?"panel pad":""}" style="scroll-margin-top:12px"><h3 class="sub" style="margin-bottom:${g.note?"2px":"10px"}">${g.sec}</h3>${g.note?`<p class="hint" style="margin:0 0 12px">${g.note}</p>`:""}
-      <div class="cards">${resItems(g).map(([t,d,u,c])=>u==="app:monitor"?`<button type="button" class="card" data-act="open-monitor"><span class="t">${t}</span><span class="isub">${d}</span><span><span class="chip mem">${c||"Open"}</span></span></button>`:u==="app:drills"?`<button type="button" class="card" data-act="open-drills"><span class="t">${t}</span><span class="isub">${d}</span><span><span class="chip mem">${c||"Open"}</span></span></button>`:u?`<a class="card" href="${u}" target="_blank" rel="noopener" data-ext="${u}"><span class="t">${t}</span><span class="isub">${d}</span><span><span class="chip mem">${c||"Open PDF"}</span></span></a>`:`<button type="button" class="card" data-act="res" data-res="${esc(t)}"><span class="t">${t}</span><span class="isub">${d}</span><span><span class="chip">${gi===0?"Coming soon":"Suggested"}</span></span></button>`).join("")}</div></div>`:"").join("")}
+    ${RES.map((g,gi)=>resItems(g).length?`<div id="res-${gi}" class="${g.sec==="Texas Monitor"?"panel pad":""}" style="scroll-margin-top:12px"><h3 class="sub" style="margin-bottom:${g.note?"2px":"10px"}">${g.sec}</h3>${g.note?`<p class="hint" style="margin:0 0 12px">${g.note}</p>`:""}
+      <div class="cards">${resItems(g).map(([t,d,u,c])=>u==="app:monitor"?`<button type="button" class="card" data-act="open-monitor"><span class="t">${t}</span><span class="isub">${d}</span><span><span class="chip mem">${c||"Open"}</span></span></button>`:u==="app:drills"?`<button type="button" class="card" data-act="open-drills"><span class="t">${t}</span><span class="isub">${d}</span><span><span class="chip mem">${c||"Open"}</span></span></button>`:u?`<a class="card" href="${u}" target="_blank" rel="noopener" data-ext="${u}"><span class="t">${t}</span><span class="isub">${d}</span><span><span class="chip mem">${c||"Open PDF"}</span></span></a>`:`<button type="button" class="card" data-act="res" data-res="${esc(t)}"><span class="t">${t}</span><span class="isub">${d}</span><span><span class="chip">${g.sec==="Texas Monitor"?"Coming soon":"Suggested"}</span></span></button>`).join("")}</div></div>`:"").join("")}
   </div>`;
 }
 
