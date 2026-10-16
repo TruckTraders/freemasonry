@@ -1385,15 +1385,26 @@ function refChoices(kind){const out=[];
   if(kind!=="bodies")L.filter(l=>!l.gl).forEach(l=>out.push({t:"l",id:l.n}));
   [...BODIES,...SRX].forEach(b=>out.push({t:"e",id:b.id}));
   return out.map(r=>({...r,label:refLabel(r)}))}
+const tiedLodge=(p,c)=>{const n=c.ref&&c.ref.t==="l"?c.ref.id:(/No\.\s*(\d+)\b/.exec(String(c.body||""))||[])[1];return n&&p.lodges.some(x=>x.n===+n)?+n:0};
+function lodgesAndTitles(p,ed){
+  const rows=p.lodges.map(x=>{const l=byNum(x.n);if(!l)return "";
+    const cur=(p.current||[]).map((c,i)=>({c,i})).filter(o=>tiedLodge(p,o.c)===x.n);
+    const past=(p.past||[]).filter(c=>tiedLodge(p,c)===x.n);
+    const chips=cur.map(o=>`<span class="chip acc">${esc(o.c.title)}</span>${ed?` <button class="xbtn" type="button" data-act="rm" data-list="current" data-i="${o.i}" aria-label="Remove ${esc(o.c.title)}">Remove</button>`:""}`);
+    if(!l.gl&&!x.pending)chips.push(`<span class="chip">${esc(DTITLE[degP(p)]||"Member")}</span>`);
+    return `<li><span><button type="button" class="linkbtn what" data-lodge-open="${l.n}">${esc(lname(l))}</button><br><span class="where">${l.gl?"Grand Lodge":"District "+esc(l.d)} · ${esc(l.city)}</span><br><span style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">${chips.join(" ")}</span>${past.length?`<span class="where">Past: ${past.map(c=>esc(c.title)+(c.year?" "+esc(c.year):"")).join(", ")}</span>`:""}</span><span class="when">${x.pending?`<span class="chip pilot">Affiliation pending</span>`:x.since?"since "+esc(x.since):""}</span></li>`}).join("");
+  const other=(p.current||[]).some(c=>!tiedLodge(p,c));
+  return `<ul class="resume">${rows}</ul>${other?`<h4 class="eyebrow" style="margin:14px 0 4px">Other titles</h4>${resumeList(p.current,"current",ed,c=>!tiedLodge(p,c))}`:""}${ed?`<p class="hint">Lodge memberships are set by your lodge secretary. Add a title below and pick the lodge or body from the list.</p>${addRow("current")}`:""}`}
 function refLink(b,ref){
   if(!ref){const m=/No\.\s*(\d+)\b/.exec(String(b||""));if(m&&byNum(+m[1]))ref={t:"l",id:+m[1]}}
   if(ref&&ref.t==="l"&&byNum(ref.id)) return `<button type="button" class="linklike" data-lodge-open="${ref.id}">${esc(b)}</button>`;
   if(ref&&ref.t==="e"&&entById(ref.id)) return `<button type="button" class="linklike" data-act="ent-open" data-bid="${esc(ref.id)}">${esc(b)}</button>`;
   return esc(b)}
-function resumeList(arr,kind,editable){
+function resumeList(arr,kind,editable,filt){
+  if(filt)arr=arr.map((x,i)=>Object.assign({},x,{_i:i})).filter(filt);
   if(!arr.length) return `<p class="hint">${editable?"Nothing added yet.":"None listed."}</p>`;
   return `<ul class="resume">${arr.map((x,i)=>`<li><span><span class="what">${esc(x.title||x.name)}</span>${x.body?`<br><span class="where">${refLink(x.body,x.ref)}</span>`:""}</span>
-    <span><span class="when">${esc(x.year||"")}</span>${editable?` <button class="xbtn" type="button" data-act="rm" data-list="${kind}" data-i="${i}" aria-label="Remove">Remove</button>`:""}</span></li>`).join("")}</ul>`;
+    <span><span class="when">${esc(x.year||"")}</span>${editable?` <button class="xbtn" type="button" data-act="rm" data-list="${kind}" data-i="${x._i!=null?x._i:i}" aria-label="Remove">Remove</button>`:""}</span></li>`).join("")}</ul>`;
 }
 function addRow(kind){
   const isCert=kind==="certs";
@@ -1433,11 +1444,9 @@ function profileDetail(id){
   ${canEd?`<div class="actions" style="margin-top:14px">${ed?`<button class="btn" type="button" data-act="done-prof">Done editing</button>`:`<button class="btn ghost" type="button" data-act="edit-prof">${own?"Edit my profile":"Edit this profile (admin)"}</button>`}</div>`:""}
   <div class="section"><h3 class="sub">Degree on record</h3>${canSetDegree(id)?`<label style="display:grid;gap:4px;max-width:320px"><select id="prof-degree" data-pid="${id}" aria-label="Degree on record">${Object.keys(DTITLE).map(k=>`<option value="${k}" ${degP(p)===k?"selected":""}>${DTITLE[k]}</option>`).join("")}</select><span class="hint">Set by the lodge secretary or another officer who can edit this lodge. It decides what he can see and do on the Trestle Board. An Entered Apprentice or Fellowcraft belongs to the lodge that made him and can follow other lodges but cannot join one without a Grand Lodge dispensation.</span></label>`:`<p style="margin:0"><b>${esc(DTITLE[degP(p)]||"Not on record")}</b></p><p class="hint" style="margin:4px 0 0">Your lodge secretary keeps this on record. ${degP(p)==="MM"?"":`It limits what you can see and do: mentoring (you can have a mentor but can't be one), resources and drills for your degree only.`}</p>`}</div>
   ${canSeeLogin(id)?`<div class="section"><h3 class="sub">Last sign-in</h3><p style="margin:0">${esc(lastSeen(id))}</p><p class="hint" style="margin:4px 0 0">${own?"Your lodge officers and district officers can see when you last signed in.":"Visible to this lodge's officers, district officers and Grand Lodge officers."}</p></div>`:""}
-  <div class="section"><h3 class="sub">Lodge memberships</h3><ul class="resume">${p.lodges.map(x=>{const l=byNum(x.n);return `<li><span><button type="button" class="linkbtn what" data-lodge-open="${l.n}">${esc(lname(l))}</button><br><span class="where">${l.gl?"Grand Lodge officer":"District "+esc(l.d)} · ${esc(l.city)}</span></span><span class="when">${x.pending?`<span class="chip pilot">Affiliation pending</span>`:x.since?"since "+esc(x.since):""}</span></li>`}).join("")}</ul>
-    ${ed?`<p class="hint">Lodge memberships are set by your lodge secretary.</p>`:""}
+  <div class="section"><h3 class="sub">Lodges and titles</h3>${lodgesAndTitles(p,ed)}
     ${own?`<div class="actions" style="margin:12px 0 0"><button class="btn ghost small" type="button" disabled>Pay dues online</button><span class="chip">Coming soon</span></div>`:""}</div>
   <div class="section"><h3 class="sub">Mentoring</h3>${signedIn()?mentorBlock(id):`<p class="hint">Sign in to see mentoring.</p>`}</div>
-  <div class="section"><h3 class="sub">Current titles</h3>${resumeList(p.current,"current",ed)}${ed?addRow("current"):""}</div>
   <div class="section"><h3 class="sub">Past titles</h3>${resumeList(p.past,"past",ed)}${ed?addRow("past"):""}</div>
   <div class="section"><h3 class="sub">Esoteric certificates</h3>${resumeList(p.certs,"certs",ed)}${ed?addRow("certs"):""}</div>
   <div class="section"><h3 class="sub">Other Masonic bodies</h3>${resumeList(p.bodies,"bodies",ed)}${ed?addRow("bodies"):""}</div>
