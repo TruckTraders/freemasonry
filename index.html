@@ -190,6 +190,7 @@ table.matrix thead th{font-size:12px;text-transform:uppercase;letter-spacing:.06
 .cmform{display:flex;gap:8px}.cmform input{flex:1}
 .evcard{display:grid;grid-template-columns:64px minmax(0,1fr);gap:12px;background:var(--sunk);border-radius:8px;padding:12px}
 .evcard .date{font-family:var(--f-mono);font-size:12px;color:var(--muted);line-height:1.3}.evcard .date b{display:block;font-size:22px;color:var(--fg)}
+.linklike{background:none;border:0;padding:0;color:var(--accent);text-decoration:underline;cursor:pointer;font:inherit;text-align:left}
 .xbtn{background:none;border:0;color:var(--danger);cursor:pointer;font-size:13px;padding:0 4px}
 .profile-head{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
 /* calendar */
@@ -1278,16 +1279,25 @@ function membersView(){
       <span style="min-width:0"><span class="iname">${esc(p.name)}</span><span class="isub">${esc(p.current[0]?.title||"Member")} · ${p.lodges.filter(x=>!x.pending&&x.n!==0).map(x=>esc(byNum(x.n)?.name)).join(", ")}</span></span><span>${me().profile===id?`<span class="chip mem">You</span>`:""}</span></button>`}).join("")||`<div class="empty">No one matches that search.</div>`}</div></div>
   <div class="panel detail">${profileDetail(S.prof)}</div></div>`;
 }
+const refLabel=r=>r.t==="l"?lname(byNum(r.id)):(()=>{const b=entById(r.id);return bodyTitle(b)+" ("+b.t+")"})();
+function refChoices(kind){const out=[];
+  if(kind!=="bodies")L.filter(l=>!l.gl).forEach(l=>out.push({t:"l",id:l.n}));
+  [...BODIES,...SRX].forEach(b=>out.push({t:"e",id:b.id}));
+  return out.map(r=>({...r,label:refLabel(r)}))}
+function refLink(b,ref){
+  if(ref&&ref.t==="l"&&byNum(ref.id)) return `<button type="button" class="linklike" data-lodge-open="${ref.id}">${esc(b)}</button>`;
+  if(ref&&ref.t==="e"&&entById(ref.id)) return `<button type="button" class="linklike" data-act="ent-open" data-bid="${esc(ref.id)}">${esc(b)}</button>`;
+  return esc(b)}
 function resumeList(arr,kind,editable){
   if(!arr.length) return `<p class="hint">${editable?"Nothing added yet.":"None listed."}</p>`;
-  return `<ul class="resume">${arr.map((x,i)=>`<li><span><span class="what">${esc(x.title||x.name)}</span>${x.body?`<br><span class="where">${esc(x.body)}</span>`:""}</span>
+  return `<ul class="resume">${arr.map((x,i)=>`<li><span><span class="what">${esc(x.title||x.name)}</span>${x.body?`<br><span class="where">${refLink(x.body,x.ref)}</span>`:""}</span>
     <span><span class="when">${esc(x.year||"")}</span>${editable?` <button class="xbtn" type="button" data-act="rm" data-list="${kind}" data-i="${i}" aria-label="Remove">Remove</button>`:""}</span></li>`).join("")}</ul>`;
 }
 function addRow(kind){
   const isCert=kind==="certs";
   return `<form class="inline-form" data-add="${kind}" style="margin-top:10px">
     <label>${isCert?"Certificate":kind==="bodies"?"Role or title":"Title"}<input type="text" name="a" required></label>
-    ${isCert?"":`<label>${kind==="bodies"?"Body (Scottish Rite, York Rite, Shrine…)":"Lodge or body"}<input type="text" name="b"></label>`}
+    ${isCert?"":`<label>${kind==="bodies"?"Body (Scottish Rite, York Rite, Shrine…)":"Lodge or body"}<input type="text" name="b" list="ref-${kind}" autocomplete="off" placeholder="Start typing, then pick from the list"><datalist id="ref-${kind}">${refChoices(kind).map(r=>`<option value="${esc(r.label)}"></option>`).join("")}</datalist></label>`}
     <label>${kind==="past"?"Years":"Year"}<input type="text" name="c" style="width:110px"></label>
     <button class="btn small" type="submit">Add</button></form>`;
 }
@@ -1562,6 +1572,7 @@ document.addEventListener("click",e=>{
   switch(t.dataset.act){
     case "sr-toggle":{const o=S.srOpen||(S.srOpen={});o[t.dataset.bid]=!o[t.dataset.bid];if(!o[t.dataset.bid]&&t.dataset.bid==="sr-texas"){}render();break}
     case "body-sel":{const e=entById(t.dataset.bid);if(e&&e.lvl){const o=S.srOpen||(S.srOpen={});entChain(e).slice(1).forEach(i=>o[i]=true);if(e.lvl!=="body")o[e.id]=true}}S.bodySel=t.dataset.bid;render();if(window.innerWidth<=820)document.getElementById("bdetail")?.scrollIntoView({block:"start"});break;
+    case "ent-open":{const b=entById(t.dataset.bid);if(!b)break;S.tab="bodies";UI={editing:false,editProfile:false,adding:null,confirmDel:null};if(b.lvl){const o=S.srOpen||(S.srOpen={});entChain(b).slice(1).forEach(i=>o[i]=true)}S.bodyT=b.t;S.bodyK="";S.bodyQ="";S.bodySel=b.id;render();scrollTo(0,0);break}
     case "body-type":S.bodyT=t.dataset.v;S.bodyK="";S.bodyQ="";render();scrollTo(0,0);break;
     case "body-board":{const b=entById(t.dataset.bid);S.feedFilter="ab:"+b.id;const k=b.lvl==="orient"?"or":(b.lvl==="valley"?"v:":"a:")+b.id;if(boardsICanPost().some(x=>bKey(x)===k))S.postTo=k;S.tab="feed";S.feedTab="feed";UI.editing=false;render();scrollTo(0,0);break}
     case "body-home":S.bodyT=null;render();scrollTo(0,0);break;
@@ -1699,7 +1710,11 @@ document.addEventListener("submit",e=>{
   if(f.dataset.add){
     const p=editTarget(); if(!p) return; const fd=new FormData(f); const a=(fd.get("a")||"").trim(); if(!a) return;
     const kind=f.dataset.add;
-    p[kind].push(kind==="certs"?{name:a,year:(fd.get("c")||"").trim()}:{title:a,body:(fd.get("b")||"").trim(),year:(fd.get("c")||"").trim()});
+    let bv=(fd.get("b")||"").trim(),ref=null;
+    if(kind!=="certs"&&bv){const m=refChoices(kind).find(r=>r.label.toLowerCase()===bv.toLowerCase());
+      if(!m){toast("Pick a lodge or body from the list so it links to its page");return}
+      ref={t:m.t,id:m.id};bv=m.label}
+    p[kind].push(kind==="certs"?{name:a,year:(fd.get("c")||"").trim()}:{title:a,body:bv,ref,year:(fd.get("c")||"").trim()});
     logIt(`added "${a}" to their profile`); toast("Added"); render(); return;
   }
   if(f.id==="postform"){
