@@ -754,16 +754,15 @@ function renderSwitcher(){document.getElementById("viewas").innerHTML=USERS.filt
 function tabs(){
   const adm=can("manageRoles")||can("editAnyLodge"),pr=!!myProfile(),un=totalUnread();
   const T=[
-    {k:"feed",l:"Trestle Board"},
+    {k:"feed",l:"Trestle Board",main:"feed:feed",sub:[["feed:feed","Trestle Board"],["feed:cal","Calendar"],["feed:groups","Groups"]]},
     {k:"dir",l:"Lodge Directory",main:"dir:mine",sub:[["dir:mine","My lodges"],["dir:find","Find a lodge"]]},
     {k:"bodies",l:"Appendant Bodies",main:"bodies:home",sub:[["bodies:Shrine","Shrine"],["bodies:Scottish Rite","Scottish Rite"],["bodies:York Rite","York Rite"]]},
-    {k:"cal",l:"Calendar"},
     {k:"members",l:"Members",main:"members",sub:[["members","Member directory"],...(pr?[["members:profile","My profile"],["members:card","My card"],["members:mentor","Mentoring"],["members:messages","Messages",un]]:[])]},
     {k:"res",l:"Resources",main:"res",sub:RES.map((g,i)=>resItems(g).length?["res:"+i,g.sec]:null).filter(Boolean)}];
   if(adm) T.push({k:"admin",l:"Admin"});
-  if(S.tab!=="account"&&S.tab!=="profile"&&S.tab!=="messages"&&S.tab!=="card"&&S.tab!=="drills"&&S.tab!=="monitor"&&S.tab!=="mentor"&&!T.find(x=>x.k===S.tab)) S.tab="dir";
+  if(S.tab!=="account"&&S.tab!=="profile"&&S.tab!=="messages"&&S.tab!=="card"&&S.tab!=="drills"&&S.tab!=="monitor"&&S.tab!=="mentor"&&S.tab!=="cal"&&!T.find(x=>x.k===S.tab)) S.tab="dir";
   document.getElementById("tabs").innerHTML=T.map(g=>{
-    const sel=S.tab===g.k||(g.k==="res"&&(S.tab==="drills"||S.tab==="monitor"))||(g.k==="members"&&(S.tab==="mentor"||S.tab==="card"));
+    const sel=S.tab===g.k||(g.k==="feed"&&S.tab==="cal")||(g.k==="res"&&(S.tab==="drills"||S.tab==="monitor"))||(g.k==="members"&&(S.tab==="mentor"||S.tab==="card"));
     if(!g.sub) return `<div class="tabgrp"><button role="tab" type="button" data-tab="${g.k}" aria-selected="${sel}">${g.l}</button></div>`;
     const open=UI.navMenu===g.k;
     return `<div class="tabgrp"><button role="tab" type="button" data-go="${g.main}" aria-selected="${sel}">${g.l}</button><button type="button" class="caret" data-act="navmenu" data-grp="${g.k}" aria-haspopup="true" aria-expanded="${open}" aria-selected="${sel}" aria-label="${g.l} menu"><span aria-hidden="true">▾</span></button>${open?`<div class="subnav" role="menu">${g.sub.map(([go,lab,n])=>`<button type="button" role="menuitem" data-go="${go}">${lab}${n?`<span class="badge">${n}</span>`:""}</button>`).join("")}</div>`:""}</div>`}).join("");
@@ -772,6 +771,7 @@ function goTo(go){
   const[tab,sub]=go.split(":");
   UI={editing:false,editProfile:false,adding:null,confirmDel:null};
   if(tab==="dir"){S.tab="dir";S.dirFind=sub==="find";S.dirOpen=false;S.distPage=null;S.dist="";S.q="";render();scrollTo(0,0);return}
+  if(tab==="feed"){if(sub==="cal"){S.tab="cal"}else{S.tab="feed";S.feedTab=sub==="groups"?"groups":"feed";S.feedFilter="all"}render();scrollTo(0,0);return}
   if(tab==="bodies"){S.tab="bodies";S.bodyOpen=false;S.bodyT=sub==="home"?null:sub==="all"?"":sub;S.bodyK="";S.bodyQ="";render();scrollTo(0,0);return}
   if(tab==="members"&&sub==="profile"){openProfile();return}
   if(tab==="members"&&sub==="mentor"){S.tab="mentor";render();scrollTo(0,0);return}
@@ -881,9 +881,8 @@ function bodiesView(){
     return `${strip}<div class="actions" style="margin:0 0 12px"><button class="btn ghost small" type="button" data-act="body-home">← Appendant Bodies</button></div>
   <h3 class="sub" style="margin:0 0 10px">${S.bodyT?esc(S.bodyT):"All appendant bodies"}</h3>
   ${S.bodyT==="York Rite"?`<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px">${kinds.map(k=>chip("body-kind",k,S.bodyK||"",k?k.replace(/y$/,"ie")+"s":"All York Rite")).join("")}</div>`:""}
-  <div class="grid"><div class="panel"><div class="filters"><input type="text" id="bq" placeholder="Search name, number or city" value="${esc(S.bodyQ||"")}" aria-label="Search bodies"><div class="count" id="bcount">${bodyCount(list)}</div></div>
-    <div class="list" id="blist">${bodyListHtml(list)}</div></div>
-  <div class="panel detail" id="bdetail">${bodyDetail()}</div></div>`}
+  <div class="panel"><div class="filters"><input type="text" id="bq" placeholder="Search name, number or city" value="${esc(S.bodyQ||"")}" aria-label="Search bodies"><div class="count" id="bcount">${bodyCount(list)}</div></div>
+    <div class="list" id="blist">${bodyListHtml(list)}</div></div>`}
 
 /* ---------- directory ---------- */
 function filtered(){const q=S.q.trim().toLowerCase();return L.filter(l=>(!S.dist||l.d===S.dist)&&(!q||`${l.n} ${l.name} ${l.city} ${l.county}`.toLowerCase().includes(q)))}
@@ -910,14 +909,13 @@ function dirView(){
   if(S.distPage&&L.some(l=>l.d===S.distPage)){
     return `<div class="actions" style="margin:0 0 12px"><button class="btn ghost small" type="button" data-act="dist-list">← Back to find a lodge</button>${signedIn()?`<button class="btn ghost small" type="button" data-act="dir-mine">← Back to My Lodges</button>`:""}</div><div class="panel detail" id="detail">${districtDetail(S.distPage)}</div>`}
   const list=filtered(),ds=districts();
-  return `${signedIn()?`<div class="actions" style="margin:0 0 12px"><button class="btn ghost small" type="button" data-act="dir-mine">← Back to My Lodges</button></div>`:""}<h3 class="sub" style="margin:0 0 10px">Find a lodge</h3><div class="grid"><div class="panel">
+  return `${signedIn()?`<div class="actions" style="margin:0 0 12px"><button class="btn ghost small" type="button" data-act="dir-mine">← Back to My Lodges</button></div>`:""}<h3 class="sub" style="margin:0 0 10px">Find a lodge</h3><div class="panel">
     <div class="filters">
       <input type="text" id="q" placeholder="Search name, number, city or county" value="${esc(S.q)}" aria-label="Search lodges">
       <select id="dist" aria-label="District"><option value="">All districts (${ds.length})</option>
         ${ds.map(d=>`<option value="${esc(d)}" ${S.dist===d?"selected":""}>${esc(dLabel(d))}</option>`).join("")}</select>
       <div class="count">${list.length} of ${L.length} lodges</div></div>
-    <div class="list" id="list">${listHtml(list)}</div></div>
-  <div class="panel detail" id="detail">${lodgeDetail()}</div></div>`;
+    <div class="list" id="list">${listHtml(list)}</div></div>`;
 }
 const listHtml=list=>{if(!list.length)return `<div class="empty">No lodges match that search.</div>`;
   const o=S.distOpen||{},force=!!S.q.trim()||!!S.dist,by={};list.forEach(l=>(by[l.d]||(by[l.d]=[])).push(l));
@@ -1138,7 +1136,7 @@ function lodgeCal(l){
 }
 function calView(){
   const all=!signedIn()&&!S.calBodies, keys=all?[]:calKeys();
-  return `<div class="stack"><div class="panel pad">${all?"":bodyBar(keys)}${calendar({keys,all,lodge:null})}</div></div>`;
+  return `<div class="stack">${signedIn()?feedTabs()+`<div class="actions" style="margin:0"><button class="btn ghost small" type="button" data-act="post-from-cal">Write a post</button></div>`:""}<div class="panel pad">${all?"":bodyBar(keys)}${calendar({keys,all,lodge:null})}</div></div>`;
 }
 
 /* ---------- messages ---------- */
@@ -1550,8 +1548,8 @@ function postExtras(p){
   if(p.files&&p.files.length)h+=`<div style="display:flex;gap:8px;flex-wrap:wrap">${p.files.map(f=>`<span class="fchip">📎 ${esc(f.name)} <span class="isub">${fsize(f.size)}</span></span>`).join("")}</div>`;
   if(p.poll){const tot=p.poll.reduce((a,o)=>a+o.v.length,0);h+=`<div role="group" aria-label="Poll">${p.poll.map((o,i)=>{const pc=tot?Math.round(o.v.length/tot*100):0;return `<button type="button" class="pollbar ${o.v.includes(S.user)?"me":""}" data-act="vote" data-post="${p.id}" data-i="${i}"><i style="width:${pc}%"></i><span><span>${esc(o.t)}${o.v.includes(S.user)?" ✓":""}</span><span>${o.v.length} · ${pc}%</span></span></button>`}).join("")}<div class="isub">${tot} ${tot===1?"vote":"votes"}. Tap an option to vote, tap again to undo.</div></div>`}
   return h}
-function feedTabs(){const a=S.feedTab==="groups"?"groups":"feed";
-  return `<div class="seg" role="tablist" aria-label="Trestle Board sections" style="margin:0 0 4px">${[["feed","Feed"],["groups","Groups"]].map(([k,l])=>`<button type="button" class="btn small ${a===k?"":"ghost"}" role="tab" aria-selected="${a===k}" data-act="feed-tab" data-k="${k}">${l}</button>`).join(" ")}</div>`}
+function feedTabs(){const a=S.tab==="cal"?"cal":S.feedTab==="groups"?"groups":"feed";
+  return `<div class="seg" role="tablist" aria-label="Trestle Board sections" style="margin:0 0 4px">${[["feed","Trestle Board"],["cal","Calendar"],["groups","Groups"]].map(([k,l])=>`<button type="button" class="btn small ${a===k?"":"ghost"}" role="tab" aria-selected="${a===k}" data-act="feed-tab" data-k="${k}">${l}</button>`).join(" ")}</div>`}
 function myGroups(){
   const m=myProfile();if(!m)return [];const out=[];
   myLodges().filter(n=>n!==0).forEach(n=>{const l=byNum(n);if(!l)return;
@@ -1581,6 +1579,7 @@ function feedView(){
   const grp=(t,label)=>{const g=can_.filter(b=>b.t===t);return g.length?`<optgroup label="${label}">${g.map(b=>`<option value="${bKey(b)}" ${bKey(b)===S.postTo?"selected":""}>${esc(bName(b))}</option>`).join("")}</optgroup>`:""};
   return `<div class="stack" style="max-width:680px">
     ${feedTabs()}
+    ${L.some(canEdit)&&UI.adding!=="cal"?`<div class="actions" style="margin:0"><button class="btn ghost small" type="button" data-act="add-ev-feed">Add an event</button></div>`:""}${UI.adding==="cal"?eventForm(null):""}
     <div><h2 class="title" style="margin:0 0 6px">${atD?"District "+esc(atD)+" Trestle Board":atB?esc(atB.name)+" Trestle Board":atL?esc(lname(atL))+" Trestle Board":"Trestle Board"}</h2>
       <p class="hint" style="margin:0">${atD?`Posts to District ${esc(atD)}, seen by every lodge in the district. <button class="linkbtn" type="button" data-act="feed-all">Show all my boards</button>`:atB?`Posts to this ${atB.lvl==="orient"?"Scottish Rite board":atB.lvl==="valley"?"Valley and the Texas Scottish Rite":"body, its Valley and the Texas Scottish Rite"}. <button class="linkbtn" type="button" data-act="feed-all">Show all my boards</button>`:atL?`Posts to this ${atL.gl?"board":"lodge, District "+esc(atL.d)+","} and the Grand Lodge. <button class="linkbtn" type="button" data-act="feed-all">Show all my boards</button>`:"Posts from your lodges, the lodges you follow, your district, and the Grand Lodge."}</p></div>
     ${can_.length?`<form class="panel pad" id="postform" style="display:grid;gap:10px">
@@ -1748,7 +1747,9 @@ document.addEventListener("click",e=>{
     case "drill-open":S.drillSlug=t.dataset.slug;render();scrollTo(0,0);break
     case "drills-back":if(S.drillSlug){S.drillSlug=null}else{S.tab="res"}render();scrollTo(0,0);break
     case "mentor-rm":S.mentor=ensureMentor().filter(x=>x.id!==t.dataset.id);render();break
-    case "feed-tab":S.feedTab=t.dataset.k;render();break;
+    case "feed-tab":if(t.dataset.k==="cal"){S.tab="cal"}else{S.tab="feed";S.feedTab=t.dataset.k}UI={editing:false,editProfile:false,adding:null,confirmDel:null};render();break;
+    case "add-ev-feed":UI.adding="cal";render();document.getElementById("ev-title")?.focus();break;
+    case "post-from-cal":S.tab="feed";S.feedTab="feed";S.feedFilter="all";UI.adding=null;render();document.getElementById("post-text")?.focus();scrollTo(0,0);break;
     case "group-msg":{const g=myGroups().find(x=>x.id===t.dataset.id);if(!g)break;S.newMsg=true;S.newTo=g.members.filter(x=>x!==meP());S.msgGroup=g.name;S.msgFirst="";S.msgQ="";S.tab="messages";render();scrollTo(0,0);break}
     case "group-del":S.groups=(S.groups||[]).filter(g=>g.id!==t.dataset.id);render();break;
     case "feed-reset":S.feedBoards=null;render();break;
