@@ -515,10 +515,11 @@ const PERMS = [
   ["editOwnLodge","Edit own lodge and its calendar"],
   ["membersArea","See own lodge's private area"],
   ["postDistrict","Post to own district's Trestle Board"],
-  ["postGrandLodge","Post to the Grand Lodge Trestle Board"]
+  ["postGrandLodge","Post to the Grand Lodge Trestle Board"],
+  ["postScottishRite","Post to the Scottish Rite, Valley and body Trestle Boards"]
 ];
 const DEFAULT_ROLES = {
-  super:{label:"Super Admin",level:"System",perms:{manageRoles:1,mergeLodges:1,editAnyLodge:1,editDistrictLodges:1,editOwnLodge:1,membersArea:1,postDistrict:1,postGrandLodge:1}},
+  super:{label:"Super Admin",level:"System",perms:{postScottishRite:1,manageRoles:1,mergeLodges:1,editAnyLodge:1,editDistrictLodges:1,editOwnLodge:1,membersArea:1,postDistrict:1,postGrandLodge:1}},
   gl:{label:"Grand Lodge Admin",level:"Grand Lodge",perms:{mergeLodges:1,editAnyLodge:1,editDistrictLodges:1,editOwnLodge:1,membersArea:1,postDistrict:1,postGrandLodge:1}},
   ddgm:{label:"District Admin · DDGM",level:"District",perms:{editDistrictLodges:1,editOwnLodge:1,membersArea:1,postDistrict:1}},
   di:{label:"District Admin · DI",level:"District",perms:{editDistrictLodges:1,editOwnLodge:1,membersArea:1,postDistrict:1}},
@@ -623,7 +624,7 @@ const dLabel=d=>d==="Grand Lodge"?"Grand Lodge":d==="Statewide"?"Statewide lodge
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const me=()=>USERS.find(u=>u.id===S.user)||USERS[0];
 const role=()=>me().role?S.roles[me().role]:null;
-const can=p=>!!(role()?.perms?.[p]);
+const can=p=>!!(role()?.perms?.[p])||(p==="postScottishRite"&&me().role==="super");
 const signedIn=()=>!!role();
 const myProfile=()=>me().profile?S.profiles[me().profile]:null;
 const myLodges=()=>{const p=myProfile();return p?p.lodges.filter(x=>!x.pending).map(x=>x.n):(me().lodge?[me().lodge]:[])};
@@ -751,29 +752,50 @@ function render(){
 
 /* ---------- appendant bodies ---------- */
 const BKIND={Chapter:"Royal Arch Chapter",Council:"Council of Royal & Select Masters",Commandery:"Commandery, Knights Templar"};
-const bodyById=id=>BODIES.find(b=>b.id===id);
-const bodyTitle=b=>b.t==="York Rite"?`${b.name} ${b.k} No. ${b.n}`:b.name;
+const SRDEF=[["lop","Lodge of Perfection","4°–14°","LP"],["rc","Chapter of Rose Croix","15°–18°","RC"],["ck","Council of Kadosh","19°–30°","CK"],["cs","Consistory","31°–32°","CS"]];
+const SRORIENT={id:"sr-texas",t:"Scottish Rite",lvl:"orient",name:"Texas Scottish Rite",city:"Orient of Texas"};
+BODIES.forEach(b=>{if(b.t==="Scottish Rite")b.lvl="valley"});
+const SRX=[SRORIENT];
+BODIES.filter(b=>b.lvl==="valley").forEach(v=>SRDEF.forEach(([c,n,d,a])=>SRX.push({id:v.id+"-"+c,t:"Scottish Rite",lvl:"body",valley:v.id,name:v.city+" "+n,bn:n,degs:d,abbr:a,city:v.city})));
+const entById=id=>BODIES.find(b=>b.id===id)||SRX.find(b=>b.id===id);
+const bodyById=entById;
+const entParent=e=>e.lvl==="body"?e.valley:e.lvl==="valley"?"sr-texas":null;
+const entChain=e=>{const o=[];let x=e;while(x){o.push(x.id);const pid=entParent(x);x=pid?entById(pid):null}return o};
+const boardEntId=b=>b.t==="orient"?"sr-texas":(b.t==="valley"||b.t==="abody")?b.id:null;
+const postReachesEnt=(p,e)=>{const id=boardEntId(p.board);return !!id&&entChain(e).includes(id)};
+const bodyTitle=b=>b.lvl==="valley"?"Valley of "+b.city:b.t==="York Rite"?`${b.name} ${b.k} No. ${b.n}`:b.name;
 const bodyFollowing=id=>((S.bodyFollows||{})[S.user]||[]).includes(id);
-const bodyFiltered=()=>{const q=(S.bodyQ||"").trim().toLowerCase();return BODIES.filter(b=>(!S.bodyT||b.t===S.bodyT)&&(!S.bodyK||b.k===S.bodyK)&&(!q||`${b.name} ${b.city||""} ${b.n||""} ${b.t} ${b.k||""}`.toLowerCase().includes(q)))};
-function bodyItem(b){return `<button type="button" class="item" data-act="body-sel" data-bid="${b.id}" aria-current="${S.bodySel===b.id}"><span class="num">${b.n!=null?b.n:b.t==="Shrine"?"SH":"SR"}</span>
-  <span style="min-width:0"><span class="iname">${esc(b.name)}</span><span class="isub">${b.t==="York Rite"?esc(b.k)+" · ":""}${esc(b.city||"—")}</span></span><span>${bodyFollowing(b.id)?`<span class="chip">Following</span>`:""}</span></button>`}
+const bodyFiltered=()=>{const q=(S.bodyQ||"").trim().toLowerCase();
+  if(S.bodyT==="Scottish Rite"){const all=[SRORIENT];BODIES.filter(b=>b.lvl==="valley").forEach(v=>{all.push(v);SRX.filter(e=>e.valley===v.id).forEach(e=>all.push(e))});return q?all.filter(e=>`${e.name} ${e.city||""} ${e.bn||""}`.toLowerCase().includes(q)):all}
+  return BODIES.filter(b=>(!S.bodyT||b.t===S.bodyT)&&(!S.bodyK||b.k===S.bodyK)&&(!q||`${b.name} ${b.city||""} ${b.n||""} ${b.t} ${b.k||""}`.toLowerCase().includes(q)))};
+const bodyCount=l=>S.bodyT==="Scottish Rite"?`${l.length} entries`:`${l.length} of ${BODIES.length} bodies`;
+function bodyItem(b){const ind=b.lvl==="body"&&!(S.bodyQ||"").trim()?"padding-left:30px;":"";
+  return `<button type="button" class="item" style="${ind}" data-act="body-sel" data-bid="${b.id}" aria-current="${S.bodySel===b.id}"><span class="num">${b.lvl==="orient"?"TX":b.lvl==="body"?b.abbr:b.n!=null?b.n:b.t==="Shrine"?"SH":"SR"}</span>
+  <span style="min-width:0"><span class="iname">${esc(b.name)}</span><span class="isub">${b.lvl==="orient"?"Top level · every Valley":b.lvl==="valley"?"Valley · 4 bodies":b.lvl==="body"?esc(b.degs)+" degrees":b.t==="York Rite"?esc(b.k)+" · "+esc(b.city||"—"):esc(b.city||"—")}</span></span><span>${bodyFollowing(b.id)?`<span class="chip">Following</span>`:""}</span></button>`}
 const bodyListHtml=l=>l.length?l.map(bodyItem).join(""):`<div class="empty">No bodies match that search.</div>`;
 function bodyDetail(){
   const b=bodyById(S.bodySel);if(!b)return `<div class="empty">Pick a body from the list.</div>`;
   const fol=bodyFollowing(b.id),web=b.web?(/^https?:/i.test(b.web)?b.web:"https://"+b.web):"";
-  const src=b.t==="Shrine"?"Texas Shrine Association member temples list":b.t==="Scottish Rite"?"Dallas Scottish Rite related links list":"Grand Royal Arch Chapter, Grand Council and Grand Commandery of Texas directories (yorkritetexas.org)";
-  return `<div class="eyebrow">${esc(b.t)}${b.k?" · "+esc(BKIND[b.k]):""}</div><h2 class="title">${esc(bodyTitle(b))}</h2>
+  const src=b.lvl==="body"||b.lvl==="orient"?"the Scottish Rite structure of a Valley and its four bodies (please verify the body names and degree ranges)":b.t==="Shrine"?"Texas Shrine Association member temples list":b.t==="Scottish Rite"?"Dallas Scottish Rite related links list":"Grand Royal Arch Chapter, Grand Council and Grand Commandery of Texas directories (yorkritetexas.org)";
+  const lvlName=b.lvl==="orient"?"Scottish Rite · Orient of Texas":b.lvl==="valley"?"Scottish Rite · Valley":b.lvl==="body"?"Scottish Rite · "+b.bn:"";
+  const kids=b.lvl==="orient"?BODIES.filter(x=>x.lvl==="valley"):b.lvl==="valley"?SRX.filter(x=>x.valley===b.id):[];
+  const par=entParent(b)?entById(entParent(b)):null;
+  const srx=b.lvl?`${par?`<p class="hint" style="margin:10px 0 0">Part of <button class="linkbtn" type="button" data-act="body-sel" data-bid="${par.id}">${esc(bodyTitle(par))}</button>${entParent(par)?` · <button class="linkbtn" type="button" data-act="body-sel" data-bid="${entParent(par)}">Texas Scottish Rite</button>`:""}</p>`:""}
+    ${kids.length?`<div class="section"><h3 class="sub">${b.lvl==="orient"?"Valleys":"Bodies in this Valley"}</h3><div class="cards">${kids.map(k=>`<button type="button" class="card" data-act="body-sel" data-bid="${k.id}"><span class="t">${esc(b.lvl==="orient"?bodyTitle(k):k.bn)}</span><span class="isub">${k.degs?esc(k.degs)+" degrees":esc(k.city)}</span></button>`).join("")}</div></div>`:""}
+    <div class="section"><h3 class="sub">Trestle Board</h3>${(()=>{if(!signedIn())return `<p class="locked">🔒 Sign in to see this Trestle Board.</p>`;const ps=S.posts.filter(p=>postReachesEnt(p,b)&&canSeePost(p)).sort((x,y)=>y.at.localeCompare(x.at)).slice(0,3);
+      return `${ps.length?`<div class="stack" style="padding:0;gap:10px">${ps.map(postCard).join("")}</div>`:`<p class="hint">Nothing posted here yet. ${b.lvl==="orient"?"Posts to the Texas Scottish Rite reach every Valley and body.":b.lvl==="valley"?"Posts here also reach the Valley's four bodies, and the Texas Scottish Rite's posts reach this Valley.":"Posts here come from this body, its Valley and the Texas Scottish Rite."}</p>`}<div class="actions" style="margin-top:10px"><button class="btn ghost small" type="button" data-act="body-board" data-bid="${b.id}">Open ${esc(b.lvl==="valley"?bodyTitle(b):b.name)} Trestle Board</button></div>${fol?"":`<p class="hint" style="margin:8px 0 0">Follow this ${b.lvl==="orient"?"body":b.lvl==="valley"?"Valley":"body"} to see its posts, and everything above it, on your own Trestle Board.</p>`}`})()}</div>`:"";
+  return `<div class="eyebrow">${esc(lvlName||b.t+(b.k?" · "+BKIND[b.k]:""))}</div><h2 class="title">${esc(bodyTitle(b))}</h2>
   <div style="display:flex;gap:6px;flex-wrap:wrap"><span class="chip acc">${esc(b.t)}</span>${fol?`<span class="chip mem">Following</span>`:""}</div>
   <div class="actions">${signedIn()?`<button class="btn ${fol?"ghost":""}" type="button" data-act="body-follow" data-bid="${b.id}">${fol?"Unfollow":"Follow"}</button>`:`<button class="btn ghost" type="button" disabled>Sign in to follow</button>`}</div>
-  <dl class="facts"><dt>Body</dt><dd>${esc(b.t)}${b.k?" · "+esc(BKIND[b.k]):b.t==="Shrine"?" · Shrine temple":" · Valley"}</dd>
+  <dl class="facts"><dt>Body</dt><dd>${b.lvl==="orient"?"Texas Scottish Rite (top level)":b.lvl==="body"?esc(b.bn)+" · "+esc(b.degs)+" degrees":esc(b.t)+(b.k?" · "+esc(BKIND[b.k]):b.t==="Shrine"?" · Shrine temple":" · Valley")}</dd>
     ${b.n!=null?`<dt>Number</dt><dd>${b.n}</dd>`:""}<dt>City</dt><dd>${b.city?esc(b.city):`<span class="unset">Not listed</span>`}</dd>
     <dt>Website</dt><dd>${web?`<a href="#" data-ext="${esc(web)}">${esc(b.web)}</a>`:`<span class="unset">Not set yet</span>`}</dd>
     <dt>Meeting</dt><dd><span class="unset">Not set yet</span></dd></dl>
-  <div class="section"><h3 class="sub">Calendar and Trestle Board</h3><p class="hint">Coming next. Events and posts from the bodies you follow will show up on your Trestle Board and Calendar next to your lodges.</p></div>
+  ${srx}<div class="section"><h3 class="sub">Calendar</h3><p class="hint">Coming next. Events and posts from the bodies you follow will show up on your Trestle Board and Calendar next to your lodges.</p></div>
   <p class="hint" style="margin-top:16px">Listing source: ${esc(src)}. Names and cities were copied from a web listing and may be out of date. Please report anything wrong.</p>`}
-const BLAND={"Shrine":["Shrine","Shriners temples across Texas, including the Shriners Hospitals mission."],"Scottish Rite":["Scottish Rite","The Valleys of the Scottish Rite in Texas."],"York Rite":["York Rite","Royal Arch Chapters, Councils of Royal & Select Masters and Commanderies of Knights Templar."]};
+const BLAND={"Shrine":["Shrine","Shriners temples across Texas, including the Shriners Hospitals mission."],"Scottish Rite":["Scottish Rite","The Texas Scottish Rite, its Valleys, and the four bodies in each Valley."],"York Rite":["York Rite","Royal Arch Chapters, Councils of Royal & Select Masters and Commanderies of Knights Templar."]};
 function bodiesLanding(fl){
-  const cnt=t=>BODIES.filter(b=>b.t===t).length,unit={"Shrine":"temples","Scottish Rite":"valleys","York Rite":"bodies"};
+  const cnt=t=>BODIES.filter(b=>b.t===t).length,unit={"Shrine":"temples","Scottish Rite":"valleys · "+SRX.filter(e=>e.lvl==="body").length+" bodies","York Rite":"bodies"};
   return `${fl}<h3 class="sub" style="margin:0 0 4px">Appendant Bodies</h3><p class="hint" style="margin:0 0 14px">Pick a body to see its Texas locations.</p>
   <div class="cards">${["Shrine","Scottish Rite","York Rite"].map(t=>`<button type="button" class="card" data-act="body-type" data-v="${t}"><span class="t">${BLAND[t][0]}</span><span class="isub">${BLAND[t][1]}</span><span><span class="chip mem">${cnt(t)} ${unit[t]}</span></span></button>`).join("")}</div>
   <p style="margin:16px 0 0"><button class="linkbtn" type="button" data-act="body-type" data-v="">View all ${BODIES.length} bodies</button></p>`}
@@ -782,13 +804,13 @@ function bodiesView(){
   const strip=signedIn()&&fl0.length?`<div class="panel pad" style="margin-bottom:16px;display:grid;gap:8px"><span class="eyebrow" style="margin:0">Following (${fl0.length})</span><div style="display:flex;flex-wrap:wrap;gap:8px">${fl0.map(b=>`<button type="button" class="btn ghost small" data-act="body-pick" data-bid="${b.id}">${esc(bodyTitle(b))}</button>`).join("")}</div></div>`:"";
   if(S.bodyT==null) return bodiesLanding(strip);
   const list=bodyFiltered(),fl=((S.bodyFollows||{})[S.user]||[]).map(bodyById).filter(Boolean);
-  if(!S.bodySel||!bodyById(S.bodySel))S.bodySel=(list[0]||BODIES[0]).id;
+  if(!list.some(b=>b.id===S.bodySel))S.bodySel=(list[0]||BODIES[0]).id;
   const kinds=["","Chapter","Council","Commandery"];
   const chip=(a,v,cur,l)=>`<button type="button" class="btn ${cur===v?"":"ghost"} small" data-act="${a}" data-v="${esc(v)}">${l}</button>`;
     return `${strip}<div class="actions" style="margin:0 0 12px"><button class="btn ghost small" type="button" data-act="body-home">← Appendant Bodies</button></div>
   <h3 class="sub" style="margin:0 0 10px">${S.bodyT?esc(S.bodyT):"All appendant bodies"}</h3>
   ${S.bodyT==="York Rite"?`<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px">${kinds.map(k=>chip("body-kind",k,S.bodyK||"",k?k.replace(/y$/,"ie")+"s":"All York Rite")).join("")}</div>`:""}
-  <div class="grid"><div class="panel"><div class="filters"><input type="text" id="bq" placeholder="Search name, number or city" value="${esc(S.bodyQ||"")}" aria-label="Search bodies"><div class="count" id="bcount">${list.length} of ${BODIES.length} bodies</div></div>
+  <div class="grid"><div class="panel"><div class="filters"><input type="text" id="bq" placeholder="Search name, number or city" value="${esc(S.bodyQ||"")}" aria-label="Search bodies"><div class="count" id="bcount">${bodyCount(list)}</div></div>
     <div class="list" id="blist">${bodyListHtml(list)}</div></div>
   <div class="panel detail" id="bdetail">${bodyDetail()}</div></div>`}
 
@@ -1305,10 +1327,10 @@ function profileDetail(id){
 }
 
 /* ---------- feed ---------- */
-const bKey=b=>b.t==="gl"?"gl":b.t[0]+":"+b.id;
-const bFromKey=k=>k==="gl"?{t:"gl"}:{t:k[0]==="l"?"lodge":"district",id:k[0]==="l"?+k.slice(2):k.slice(2)};
-function bName(b){return b.t==="gl"?"Grand Lodge of Texas":b.t==="district"?"District "+b.id:lname(byNum(b.id))}
-function bReach(b){return b.t==="gl"?"Every lodge statewide":b.t==="district"?`Every lodge in District ${b.id}`:"Members and followers of this lodge"}
+const bKey=b=>b.t==="gl"?"gl":b.t==="orient"?"or":b.t[0]+":"+b.id;
+const bFromKey=k=>k==="gl"?{t:"gl"}:k==="or"?{t:"orient"}:k.startsWith("v:")?{t:"valley",id:k.slice(2)}:k.startsWith("a:")?{t:"abody",id:k.slice(2)}:{t:k[0]==="l"?"lodge":"district",id:k[0]==="l"?+k.slice(2):k.slice(2)};
+function bName(b){if(b.t==="orient")return "Texas Scottish Rite";if(b.t==="valley")return "Valley of "+entById(b.id).city;if(b.t==="abody")return entById(b.id).name;return b.t==="gl"?"Grand Lodge of Texas":b.t==="district"?"District "+b.id:lname(byNum(b.id))}
+function bReach(b){if(b.t==="orient")return "Every Valley and body of the Texas Scottish Rite";if(b.t==="valley")return "This Valley and its four bodies";if(b.t==="abody")return "Members and followers of this body";return b.t==="gl"?"Every lodge statewide":b.t==="district"?`Every lodge in District ${b.id}`:"Members and followers of this lodge"}
 function boardsICanPost(){
   if(!signedIn()) return [];
   const out=myLodges().filter(n=>n!==0).map(n=>({t:"lodge",id:n}));
@@ -1317,6 +1339,7 @@ function boardsICanPost(){
     ds.forEach(d=>out.push({t:"district",id:d}));
   }
   if(can("postGrandLodge")) out.push({t:"gl"});
+  if(can("postScottishRite")){out.push({t:"orient"});SRX.filter(e=>e.lvl==="valley"||true).forEach(e=>{if(e.lvl==="body")out.push({t:"abody",id:e.id})});BODIES.filter(b=>b.lvl==="valley").forEach(v=>out.push({t:"valley",id:v.id}))}
   return out;
 }
 function myWorld(){const s=new Set(myLodges());(S.follows[S.user]||[]).forEach(n=>s.add(n));return [...s].map(byNum).filter(Boolean)}
@@ -1325,6 +1348,7 @@ function canSeePost(p){
   if(p.by===S.user) return true;
   if(p.evId){const e=S.events.find(x=>x.id===p.evId);if(e&&e.vis==="members"){const l=byNum(e.n);if(!l||!canSeePrivate(l)) return false}}
   if(p.board.t==="gl") return true;
+  if(p.board.t==="orient"||p.board.t==="valley"||p.board.t==="abody"){const id=boardEntId(p.board);return ((S.bodyFollows||{})[S.user]||[]).map(entById).some(f=>f&&entChain(f).includes(id))}
   if(p.board.t==="lodge"){const l=byNum(p.board.id);return isMember(l)||following(l)}
   return me().district===p.board.id||myWorld().some(l=>l.d===p.board.id);
 }
@@ -1426,13 +1450,14 @@ function feedView(){
   if(!can_.some(b=>bKey(b)===S.postTo)) S.postTo=can_[0]?bKey(can_[0]):"";
   const visible=S.posts.filter(canSeePost).sort((a,b)=>b.at.localeCompare(a.at));
   const atL=S.feedFilter.startsWith("at:")?byNum(+S.feedFilter.slice(3)):null;
-  if(S.feedFilter!=="all"&&!atL) S.feedFilter="all";
-  const shown=atL?visible.filter(p=>postReachesLodge(p,atL)):S.feedBoards?visible.filter(p=>S.feedBoards.includes(bKey(p.board))):visible;
+  const atB=S.feedFilter.startsWith("ab:")?entById(S.feedFilter.slice(3)):null;
+  if(S.feedFilter!=="all"&&!atL&&!atB) S.feedFilter="all";
+  const shown=atB?visible.filter(p=>postReachesEnt(p,atB)):atL?visible.filter(p=>postReachesLodge(p,atL)):S.feedBoards?visible.filter(p=>S.feedBoards.includes(bKey(p.board))):visible;
   const grp=(t,label)=>{const g=can_.filter(b=>b.t===t);return g.length?`<optgroup label="${label}">${g.map(b=>`<option value="${bKey(b)}" ${bKey(b)===S.postTo?"selected":""}>${esc(bName(b))}</option>`).join("")}</optgroup>`:""};
   return `<div class="stack" style="max-width:680px">
     ${feedTabs()}
-    <div><h2 class="title" style="margin:0 0 6px">${atL?esc(lname(atL))+" Trestle Board":"Trestle Board"}</h2>
-      <p class="hint" style="margin:0">${atL?`Posts to this ${atL.gl?"board":"lodge, District "+esc(atL.d)+","} and the Grand Lodge. <button class="linkbtn" type="button" data-act="feed-all">Show all my boards</button>`:"Posts from your lodges, the lodges you follow, your district, and the Grand Lodge."}</p></div>
+    <div><h2 class="title" style="margin:0 0 6px">${atB?esc(atB.name)+" Trestle Board":atL?esc(lname(atL))+" Trestle Board":"Trestle Board"}</h2>
+      <p class="hint" style="margin:0">${atB?`Posts to this ${atB.lvl==="orient"?"Scottish Rite board":atB.lvl==="valley"?"Valley and the Texas Scottish Rite":"body, its Valley and the Texas Scottish Rite"}. <button class="linkbtn" type="button" data-act="feed-all">Show all my boards</button>`:atL?`Posts to this ${atL.gl?"board":"lodge, District "+esc(atL.d)+","} and the Grand Lodge. <button class="linkbtn" type="button" data-act="feed-all">Show all my boards</button>`:"Posts from your lodges, the lodges you follow, your district, and the Grand Lodge."}</p></div>
     ${can_.length?`<form class="panel pad" id="postform" style="display:grid;gap:10px">
       <div style="display:flex;gap:10px;align-items:flex-start"><span class="avatar">${pr?initials(pr.name):"SA"}</span>
         <textarea id="post-text" rows="3" style="flex:1" placeholder="Share something with the brethren..." aria-label="Post text"></textarea></div>
@@ -1440,11 +1465,11 @@ function feedView(){
       <div style="display:flex;gap:8px;flex-wrap:wrap"><label class="btn ghost small" style="cursor:pointer">📷 Photo<input type="file" id="post-photos" accept="image/*" multiple hidden></label><label class="btn ghost small" style="cursor:pointer">📎 File<input type="file" id="post-files" accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.csv" hidden></label><button class="btn ghost small" type="button" data-act="poll-on">📊 Poll</button></div>
       <div class="actions" style="margin:0;justify-content:space-between">
         <label class="hint" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">Post to
-          <select id="post-to" aria-label="Post to">${grp("lodge","My lodges")}${grp("district","District")}${grp("gl","Grand Lodge")}</select></label>
+          <select id="post-to" aria-label="Post to">${grp("lodge","My lodges")}${grp("district","District")}${grp("gl","Grand Lodge")}${grp("orient","Texas Scottish Rite")}${grp("valley","Scottish Rite Valleys")}${grp("abody","Scottish Rite bodies")}</select></label>
         <button class="btn small" type="submit">Post</button></div>
       <p class="hint" style="margin:0" id="post-reach">Reaches: ${esc(bReach(bFromKey(S.postTo)))}.</p>
     </form>`:`<div class="panel pad hint">You can read the boards you follow, but there's no board you can post to yet.</div>`}
-    ${atL?"":feedBar()}
+    ${atL||atB?"":feedBar()}
     ${shown.length?shown.map(postCard).join(""):`<div class="panel empty">${S.feedBoards&&!atL?"No posts on the boards you have turned on.":"No posts yet. Be the first to post to your lodge's Trestle Board."}</div>`}
   </div>`;
 }
@@ -1532,6 +1557,7 @@ document.addEventListener("click",e=>{
   switch(t.dataset.act){
     case "body-sel":S.bodySel=t.dataset.bid;render();if(window.innerWidth<=820)document.getElementById("bdetail")?.scrollIntoView({block:"start"});break;
     case "body-type":S.bodyT=t.dataset.v;S.bodyK="";S.bodyQ="";render();scrollTo(0,0);break;
+    case "body-board":{const b=entById(t.dataset.bid);S.feedFilter="ab:"+b.id;const k=b.lvl==="orient"?"or":(b.lvl==="valley"?"v:":"a:")+b.id;if(boardsICanPost().some(x=>bKey(x)===k))S.postTo=k;S.tab="feed";S.feedTab="feed";UI.editing=false;render();scrollTo(0,0);break}
     case "body-home":S.bodyT=null;render();scrollTo(0,0);break;
     case "body-pick":{const b=bodyById(t.dataset.bid);S.bodyT=b.t;S.bodyK="";S.bodyQ="";S.bodySel=b.id;render();scrollTo(0,0);break}
     case "body-kind":S.bodyK=t.dataset.v;render();break;
@@ -1709,7 +1735,7 @@ document.addEventListener("change",e=>{
     logIt(`${t.checked?"gave":"removed"} "${PERMS.find(p=>p[0]===t.dataset.perm)[1]}" ${t.checked?"to":"from"} ${r.label}`);render();}
 });
 document.addEventListener("input",e=>{
-  if(e.target.id==="bq"){S.bodyQ=e.target.value;const l=bodyFiltered();document.getElementById("blist").innerHTML=bodyListHtml(l);document.getElementById("bcount").textContent=`${l.length} of ${BODIES.length} bodies`;save();return}
+  if(e.target.id==="bq"){S.bodyQ=e.target.value;const l=bodyFiltered();document.getElementById("blist").innerHTML=bodyListHtml(l);document.getElementById("bcount").textContent=bodyCount(l);save();return}
   if(e.target.id==="q"){S.q=e.target.value;const list=filtered();document.getElementById("list").innerHTML=listHtml(list);document.querySelector(".count").textContent=`${list.length} of ${L.length} lodges`;save();}
   if(e.target.id==="msg-q"){S.msgQ=e.target.value;const pos=e.target.selectionStart;render();const i=document.getElementById("msg-q");i.focus();i.setSelectionRange(pos,pos);return}
   if(e.target.id==="msg-first"){S.msgFirst=e.target.value;return}
