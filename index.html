@@ -757,7 +757,7 @@ function tabs(){
     {k:"feed",l:"Trestle Board",main:"feed:feed",sub:[["feed:feed","Trestle Board"],["feed:cal","Calendar"],["feed:groups","Groups"]]},
     {k:"dir",l:"Lodge Directory",main:"dir:mine",sub:[["dir:mine","My lodges"],["dir:find","Find a lodge"]]},
     {k:"bodies",l:"Appendant Bodies",main:"bodies:home",sub:[["bodies:Shrine","Shrine"],["bodies:Scottish Rite","Scottish Rite"],["bodies:York Rite","York Rite"]]},
-    {k:"members",l:"Members",main:"members",sub:[["members","Member directory"],...(pr?[["members:profile","My profile"],["members:card","My card"],["members:mentor","Mentoring"],["members:messages","Messages",un]]:[])]},
+    {k:"members",l:"Masons",main:"members",sub:[["members","Find a Mason"],...(pr?[["members:profile","My profile"],["members:card","My card"],["members:mentor","Mentoring"],["members:messages","Messages",un]]:[])]},
     {k:"res",l:"Resources",main:"res",sub:RES.map((g,i)=>resItems(g).length?["res:"+i,g.sec]:null).filter(Boolean)}];
   if(adm) T.push({k:"admin",l:"Admin"});
   if(S.tab!=="account"&&S.tab!=="profile"&&S.tab!=="messages"&&S.tab!=="card"&&S.tab!=="drills"&&S.tab!=="monitor"&&S.tab!=="mentor"&&S.tab!=="cal"&&!T.find(x=>x.k===S.tab)) S.tab="dir";
@@ -777,7 +777,7 @@ function goTo(go){
   if(tab==="members"&&sub==="mentor"){S.tab="mentor";render();scrollTo(0,0);return}
   if(tab==="members"&&sub==="card"){S.tab="card";render();scrollTo(0,0);return}
   if(tab==="members"&&sub==="messages"){if(S.tab!=="messages"&&S.tab!=="profile"&&S.tab!=="account")S.prevTab=S.tab;S.tab="messages";S.newMsg=false;S.msgSel=null;render();scrollTo(0,0);return}
-  if(tab==="members"){S.tab="members";render();scrollTo(0,0);return}
+  if(tab==="members"){S.tab="members";S.personOpen=false;render();scrollTo(0,0);return}
   if(tab==="res"){S.tab="res";render();const el=document.getElementById("res-"+sub);if(el)el.scrollIntoView({block:"start"});else scrollTo(0,0);return}
 }
 function settleFirstClaims(){
@@ -1367,16 +1367,17 @@ function saveAcct(){
 function sharesLodge(p){const mine=myLodges();return p.lodges.some(a=>!a.pending&&mine.includes(a.n))}
 function canSeeField(id,f){if(me().profile===id)return true;if(!signedIn())return false;const p=S.profiles[id];const vis=ADDR.includes(f)?addrVis(p):vOf(ct(p,f));return vis==="members"||(vis==="lodge"&&sharesLodge(p))}
 function membersView(){
-  if(!signedIn()) return `<div class="panel empty">The member directory is only open to signed-in members. Switch "Viewing as" to a signed-in role.</div>`;
+  if(!signedIn()) return `<div class="panel empty">The Masons directory is only open to signed-in members. Switch "Viewing as" to a signed-in role.</div>`;
   const q=S.mq.trim().toLowerCase();
   const ids=Object.keys(S.profiles).filter(id=>{const p=S.profiles[id];return !q||(p.name+" "+p.current.map(c=>c.title).join(" ")+" "+p.lodges.map(x=>byNum(x.n)?.name).join(" ")).toLowerCase().includes(q)}).sort((a,b)=>S.profiles[a].name.localeCompare(S.profiles[b].name));
   if(!S.profiles[S.prof]) S.prof=ids[0];
-  return `<div class="grid"><div class="panel"><div class="filters">
-    <input type="text" id="mq" placeholder="Search by name, title or lodge" value="${esc(S.mq)}" aria-label="Search members">
-    <div class="count">${ids.length} members on the Hub</div></div>
+  if(S.personOpen&&S.profiles[S.prof]) return `<div class="actions" style="margin:0 0 12px"><button class="btn ghost small" type="button" data-act="mem-list">← Back to Masons</button></div><div class="panel detail">${profileDetail(S.prof)}</div>`;
+  return `<div class="panel"><div class="filters">
+    <input type="text" id="mq" placeholder="Search by name, title or lodge" value="${esc(S.mq)}" aria-label="Search Masons">
+    <div class="count">${ids.length} Masons on the Hub</div></div>
     <div class="list">${ids.map(id=>{const p=S.profiles[id];return `<button type="button" class="item person" data-person="${id}" aria-current="${S.prof===id}"><span class="avatar">${initials(p.name)}</span>
       <span style="min-width:0"><span class="iname">${esc(p.name)}</span><span class="isub">${esc(p.current[0]?.title||"Member")} · ${p.lodges.filter(x=>!x.pending&&x.n!==0).map(x=>esc(byNum(x.n)?.name)).join(", ")}</span></span><span>${me().profile===id?`<span class="chip mem">You</span>`:""}</span></button>`}).join("")||`<div class="empty">No one matches that search.</div>`}</div></div>
-  <div class="panel detail">${profileDetail(S.prof)}</div></div>`;
+  `;
 }
 const refLabel=r=>r.t==="l"?lname(byNum(r.id)):(()=>{const b=entById(r.id);return bodyTitle(b)+" ("+b.t+")"})();
 function refChoices(kind){const out=[];
@@ -1670,11 +1671,11 @@ document.addEventListener("click",e=>{
   if(UI.navMenu&&!e.target.closest(".tabgrp")){UI.navMenu=null;tabs()}
   const t=e.target.closest("[data-tab],[data-go],[data-lodge],[data-act],[data-lodge-open],[data-person],[data-day]"); if(!t) return;
   if(t.dataset.go){goTo(t.dataset.go);return}
-  if(t.dataset.tab){S.tab=t.dataset.tab;if(S.tab==="feed")S.feedFilter="all";if(S.tab==="bodies")S.bodyOpen=false;if(S.tab==="dir"){S.dirFind=false;S.dirOpen=false;S.distPage=null;S.dist="";S.q=""}UI={editing:false,editProfile:false,adding:null,confirmDel:null};render();return}
+  if(t.dataset.tab){S.tab=t.dataset.tab;if(S.tab==="feed")S.feedFilter="all";if(S.tab==="bodies")S.bodyOpen=false;if(S.tab==="members")S.personOpen=false;if(S.tab==="dir"){S.dirFind=false;S.dirOpen=false;S.distPage=null;S.dist="";S.q=""}UI={editing:false,editProfile:false,adding:null,confirmDel:null};render();return}
   if(t.dataset.lodge){S.sel=+t.dataset.lodge;UI.editing=false;UI.adding=null;if(S.tab==="dir"&&S.dirFind)S.dirOpen=true;render();if(innerWidth<=820)document.getElementById("detail")?.scrollIntoView({behavior:"smooth"});return}
   if(t.dataset.lodgeOpen){openLodge(t.dataset.lodgeOpen);return}
   if(t.dataset.person&&t.dataset.person===me().profile){openProfile();return}
-  if(t.dataset.person){S.prof=t.dataset.person;S.tab="members";UI.editProfile=false;render();if(innerWidth<=820)document.querySelector(".detail")?.scrollIntoView({behavior:"smooth"});return}
+  if(t.dataset.person){S.prof=t.dataset.person;S.tab="members";S.personOpen=true;UI.editProfile=false;render();scrollTo(0,0);if(innerWidth<=820)document.querySelector(".detail")?.scrollIntoView({behavior:"smooth"});return}
   if(t.dataset.day){S.calDay=S.calDay===t.dataset.day?null:t.dataset.day;render();return}
   const l=byNum(S.sel);
   if(t.dataset.act!=="menu"&&UI.menu){UI.menu=false;renderAcct()}
@@ -1747,6 +1748,7 @@ document.addEventListener("click",e=>{
     case "drill-open":S.drillSlug=t.dataset.slug;render();scrollTo(0,0);break
     case "drills-back":if(S.drillSlug){S.drillSlug=null}else{S.tab="res"}render();scrollTo(0,0);break
     case "mentor-rm":S.mentor=ensureMentor().filter(x=>x.id!==t.dataset.id);render();break
+    case "mem-list":S.personOpen=false;UI.editProfile=false;render();scrollTo(0,0);break;
     case "feed-tab":if(t.dataset.k==="cal"){S.tab="cal"}else{S.tab="feed";S.feedTab=t.dataset.k}UI={editing:false,editProfile:false,adding:null,confirmDel:null};render();break;
     case "add-ev-feed":UI.adding="cal";render();document.getElementById("ev-title")?.focus();break;
     case "post-from-cal":S.tab="feed";S.feedTab="feed";S.feedFilter="all";UI.adding=null;render();document.getElementById("post-text")?.focus();scrollTo(0,0);break;
