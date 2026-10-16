@@ -116,6 +116,9 @@ nav.tabs button[aria-selected=true]{color:var(--fg);border-bottom-color:var(--ac
 .list{max-height:68vh;overflow-y:auto}
 @media (max-width:820px){.list{max-height:360px}}
 .item{display:grid;grid-template-columns:52px minmax(0,1fr) auto;gap:10px;align-items:center;padding:9px 12px;border:0;border-bottom:1px solid var(--line);cursor:pointer;background:none;width:100%;text-align:left}
+.tk{margin-left:16px;border-left:2px solid var(--line)}
+.tnode{background:var(--sunk)}
+.tnode .num{font-size:15px;color:var(--accent)}
 .item.person{grid-template-columns:36px minmax(0,1fr) auto}
 .item:hover{background:var(--sunk)}
 .item[aria-current=true]{background:var(--sunk);box-shadow:inset 3px 0 0 var(--accent)}
@@ -784,14 +787,16 @@ const bodyFiltered=()=>{const q=(S.bodyQ||"").trim().toLowerCase();
 const bodyCount=l=>S.bodyT==="York Rite"?((S.bodyQ||"").trim()?`${l.filter(x=>!x.cityNode).length} found`:`${l.filter(x=>x.cityNode).length} cities · tap ▸ to expand`):S.bodyT==="Scottish Rite"?((S.bodyQ||"").trim()?`${l.length} found`:"Tap ▸ to expand"):`${l.length} of ${BODIES.length} bodies`;
 function bodyItem(b){
   if(b.cityNode){const open=!!(S.cityOpen||{})[b.city]||!!(S.bodyQ||"").trim(),ts=["Chapter","Council","Commandery"].map(k=>{const n=b.ents.filter(e=>e.k===k).length;return n?n+" "+(n>1?k.replace(/y$/,"ie")+"s":k):""}).filter(Boolean);
-    return `<div style="display:flex;align-items:stretch;border-bottom:1px solid var(--line)"><button type="button" class="btn ghost small" style="border:0;border-radius:0;width:38px;flex:none;font-size:15px" data-act="city-toggle" data-city="${esc(b.city)}" aria-expanded="${open}" aria-label="${open?"Collapse":"Expand"} ${esc(b.city)}">${open?"▾":"▸"}</button><button type="button" class="item" style="flex:1;min-width:0" data-act="body-sel" data-bid="${esc(b.id)}" aria-current="${S.bodySel===b.id}"><span class="num">${b.ents.length}</span><span style="min-width:0"><span class="iname">${esc(b.city)}</span><span class="isub">${esc(ts.join(" · "))}</span></span></button></div>`}
-  const tree=S.bodyT==="Scottish Rite"&&!(S.bodyQ||"").trim()&&b.lvl;const ind=S.bodyT==="York Rite"&&b.k?"padding-left:38px;":tree&&b.lvl==="body"?"padding-left:30px;":tree&&b.lvl==="valley"?"padding-left:14px;":"";
+    return `<div class="tnode" style="display:flex;align-items:stretch;border-bottom:1px solid var(--line)"><button type="button" class="btn ghost small" style="border:0;border-radius:0;width:38px;flex:none;font-size:15px" data-act="city-toggle" data-city="${esc(b.city)}" aria-expanded="${open}" aria-label="${open?"Collapse":"Expand"} ${esc(b.city)}">${open?"▾":"▸"}</button><button type="button" class="item" style="flex:1;min-width:0" data-act="body-sel" data-bid="${esc(b.id)}" aria-current="${S.bodySel===b.id}"><span class="num">${b.ents.length}</span><span style="min-width:0"><span class="iname">${esc(b.city)}</span><span class="isub">${esc(ts.join(" · "))}</span></span></button></div>`}
+  const tree=S.bodyT==="Scottish Rite"&&!(S.bodyQ||"").trim()&&b.lvl;const ind="";
   const kids=b.lvl==="orient"||b.lvl==="valley",open=!!(S.srOpen||{})[b.id];
   const row=`<button type="button" class="item" style="${ind}${tree&&kids?"flex:1;min-width:0;":""}" data-act="body-sel" data-bid="${b.id}" aria-current="${S.bodySel===b.id}"><span class="num">${b.lvl==="orient"?"TX":b.lvl==="body"?b.abbr:b.n!=null?b.n:b.t==="Shrine"?"SH":"SR"}</span>
   <span style="min-width:0"><span class="iname">${esc(b.name)}</span><span class="isub">${b.lvl==="orient"?"Top level · 9 Valleys":b.lvl==="valley"?"Valley · 4 bodies":b.lvl==="body"?esc(b.degs)+" degrees":b.t==="York Rite"?esc(b.k)+" · "+esc(b.city||"—"):esc(b.city||"—")}</span></span><span>${bodyFollowing(b.id)?`<span class="chip">Following</span>`:""}</span></button>`;
   if(!(tree&&kids))return row;
-  return `<div style="display:flex;align-items:stretch;border-bottom:1px solid var(--line)${b.lvl==="valley"?";padding-left:0":""}"><button type="button" class="btn ghost small" style="border:0;border-radius:0;width:38px;flex:none;font-size:15px" data-act="sr-toggle" data-bid="${b.id}" aria-expanded="${open}" aria-label="${open?"Collapse":"Expand"} ${esc(b.name)}">${open?"▾":"▸"}</button>${row}</div>`}
-const bodyListHtml=l=>l.length?l.map(bodyItem).join(""):`<div class="empty">No bodies match that search.</div>`;
+  return `<div class="tnode" style="display:flex;align-items:stretch;border-bottom:1px solid var(--line)"><button type="button" class="btn ghost small" style="border:0;border-radius:0;width:38px;flex:none;font-size:15px" data-act="sr-toggle" data-bid="${b.id}" aria-expanded="${open}" aria-label="${open?"Collapse":"Expand"} ${esc(b.name)}">${open?"▾":"▸"}</button>${row}</div>`}
+const wrapK=(h,d)=>d>0?`<div class="tk">${wrapK(h,d-1)}</div>`:h;
+const bDepth=b=>{if(b.cityNode)return 0;if(S.bodyT==="York Rite")return 1;if(S.bodyT==="Scottish Rite"&&!(S.bodyQ||"").trim())return b.lvl==="orient"?0:b.lvl==="valley"?1:2;return 0};
+const bodyListHtml=l=>l.length?l.map(b=>wrapK(bodyItem(b),bDepth(b))).join(""):`<div class="empty">No bodies match that search.</div>`;
 function cityDetail(c){const g=CITYS.find(x=>x.c===c);if(!g)return `<div class="empty">Pick a city.</div>`;
   return `<div class="eyebrow">York Rite · City</div><h2 class="title">${esc(c)}</h2><p class="hint" style="margin:0 0 6px">${g.ents.length} York Rite bod${g.ents.length===1?"y":"ies"} ${c===NOCITY?"in this group":"in "+esc(c)}.</p>${["Chapter","Council","Commandery"].map(k=>{const es=g.ents.filter(e=>e.k===k);return es.length?`<div class="section"><h3 class="sub">${k.replace(/y$/,"ie")+"s"}</h3><div class="cards">${es.map(e=>`<button type="button" class="card" data-act="body-sel" data-bid="${e.id}"><span class="t">${esc(bodyTitle(e))}</span><span class="isub">${esc(BKIND[k])}</span></button>`).join("")}</div></div>`:""}).join("")}`}
 function bodyDetail(){
@@ -866,7 +871,10 @@ function dirView(){
     <div class="list" id="list">${listHtml(list)}</div></div>
   <div class="panel detail" id="detail">${lodgeDetail()}</div></div>`;
 }
-const listHtml=list=>list.length?list.map(item).join(""):`<div class="empty">No lodges match that search.</div>`;
+const listHtml=list=>{if(!list.length)return `<div class="empty">No lodges match that search.</div>`;
+  const o=S.distOpen||{},force=!!S.q.trim()||!!S.dist,by={};list.forEach(l=>(by[l.d]||(by[l.d]=[])).push(l));
+  return districts().filter(d=>by[d]).map(d=>{const open=force||!!o[d],ls=by[d];
+    return `<button type="button" class="item tnode" data-act="dist-toggle" data-d="${esc(d)}" aria-expanded="${open}" ${force?"disabled":""}><span class="num">${open?"▾":"▸"}</span><span style="min-width:0"><span class="iname">${esc(dLabel(d))}</span><span class="isub">${ls.length} ${ls.length===1?"lodge":"lodges"}</span></span><span></span></button>${open?ls.map(l=>wrapK(item(l),1)).join(""):""}`}).join("")};
 function item(l){
   const tags=[isMember(l)?`<span class="chip mem">${l.gl?"Officer":"Member"}</span>`:following(l)?`<span class="chip">Following</span>`:"",l.gl?`<span class="chip acc">Grand Lodge</span>`:l.pilot?`<span class="chip pilot">Pilot</span>`:"",lstatChip(l)].join(" ");
   return `<button type="button" class="item" data-lodge="${l.n}" aria-current="${S.sel===l.n}"><span class="num">${l.gl?"GL":l.n}</span>
@@ -1567,7 +1575,7 @@ function adminView(){
 }
 
 /* ---------- events wiring ---------- */
-function openLodge(n){S.sel=+n;S.tab="dir";S.dist="";S.q="";S.dirFind=!signedIn()||!following(byNum(+n));UI.editing=false;UI.adding=null;render();document.getElementById("detail")?.scrollIntoView({block:"start"})}
+function openLodge(n){S.sel=+n;{const l0=byNum(+n);if(l0)(S.distOpen||(S.distOpen={}))[l0.d]=true}S.tab="dir";S.dist="";S.q="";S.dirFind=!signedIn()||!following(byNum(+n));UI.editing=false;UI.adding=null;render();document.getElementById("detail")?.scrollIntoView({block:"start"})}
 document.addEventListener("click",e=>{
   const ext=e.target.closest("a[data-ext]");
   if(ext){e.preventDefault();const w=window.open(ext.dataset.ext,"_blank");
@@ -1589,6 +1597,7 @@ document.addEventListener("click",e=>{
     case "sr-toggle":{const o=S.srOpen||(S.srOpen={});o[t.dataset.bid]=!o[t.dataset.bid];if(!o[t.dataset.bid]&&t.dataset.bid==="sr-texas"){}render();break}
     case "body-sel":{const e=entById(t.dataset.bid);if(String(t.dataset.bid).startsWith("city:"))(S.cityOpen||(S.cityOpen={}))[t.dataset.bid.slice(5)]=true;if(e&&e.lvl){const o=S.srOpen||(S.srOpen={});entChain(e).slice(1).forEach(i=>o[i]=true);if(e.lvl!=="body")o[e.id]=true}}S.bodySel=t.dataset.bid;render();if(window.innerWidth<=820)document.getElementById("bdetail")?.scrollIntoView({block:"start"});break;
     case "ent-open":{const b=entById(t.dataset.bid);if(!b)break;if(b.t==="York Rite")(S.cityOpen||(S.cityOpen={}))[cityOf(b)]=true;S.tab="bodies";UI={editing:false,editProfile:false,adding:null,confirmDel:null};if(b.lvl){const o=S.srOpen||(S.srOpen={});entChain(b).slice(1).forEach(i=>o[i]=true)}S.bodyT=b.t;S.bodyK="";S.bodyQ="";S.bodySel=b.id;render();scrollTo(0,0);break}
+    case "dist-toggle":{const o=S.distOpen||(S.distOpen={});o[t.dataset.d]=!o[t.dataset.d];render();break}
     case "city-toggle":{const o=S.cityOpen||(S.cityOpen={});o[t.dataset.city]=!o[t.dataset.city];render();break}
     case "city-open":{const c=t.dataset.city;(S.cityOpen||(S.cityOpen={}))[c]=true;S.bodyT="York Rite";S.bodyQ="";S.bodySel="city:"+c;render();scrollTo(0,0);break}
     case "body-type":S.bodyT=t.dataset.v;S.bodyK="";S.bodyQ="";render();scrollTo(0,0);break;
