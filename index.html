@@ -1158,10 +1158,10 @@ function lodgeDetail(){
     ${l.gl?"":`<dt>Stated meeting</dt><dd>${l.meet?esc(l.meet):`<span class="unset">${l.review?"Needs review (Grandview wording is unusual)":"Not set yet"}</span>`}</dd>`}
     <dt>Address</dt><dd>${l.addr?esc(l.addr)+(l.city?`<br>${esc(l.city)}, TX${l.zip?" "+esc(l.zip):""}`:""):`<span class="unset">Not set yet</span>`}</dd>
     <dt>City</dt><dd>${esc(l.city||"—")}</dd>
-    ${l.gl?"":`<dt>Mailing address</dt><dd>${l.mail?esc(l.mail):`<span class="unset">Not set yet</span>`}</dd>
+    ${l.gl?"":`${l.mail?`<dt>Mailing address</dt><dd>${esc(l.mail)}</dd>`:""}
     <dt>Phone</dt><dd>${l.phone?`<a href="tel:${esc(l.phone.replace(/[^0-9+]/g,""))}">${esc(l.phone)}</a>`:`<span class="unset">Not set yet</span>`}</dd>
     <dt>Email</dt><dd>${l.email?`<a href="mailto:${esc(l.email)}">${esc(l.email)}</a>`:`<span class="unset">Not set yet</span>`}</dd>
-    <dt>Website</dt><dd>${l.web?`<a href="#" data-ext="${esc(/^https?:/i.test(l.web)?l.web:"https://"+l.web)}">${esc(l.web)}</a>`:`<span class="unset">Not set yet</span>`}</dd>`}
+    ${l.web?`<dt>Website</dt><dd><a href="#" data-ext="${esc(/^https?:/i.test(l.web)?l.web:"https://"+l.web)}">${esc(l.web)}</a></dd>`:""}`}
     <dt>District</dt><dd>${esc(l.d)}</dd>
   </dl>
   <div class="section"><h3 class="sub">Calendar</h3>${lodgeCal(l)}</div>
@@ -1186,8 +1186,8 @@ function editLodgeForm(l){
     <label>City<input type="text" id="f-city" value="${esc(l.city)}"></label>
     ${l.gl?"":`<label>Lodge phone<input type="tel" id="f-phone" value="${esc(l.phone)}" placeholder="512-555-0100"></label>
     <label>Lodge email<input type="email" id="f-email" value="${esc(l.email)}" placeholder="secretary@yourlodge.org"></label>
-    <label>Mailing address<input type="text" id="f-mail" value="${esc(l.mail)}" placeholder="PO Box, city, state, zip"></label>
-    <label>Website<input type="text" id="f-web" value="${esc(l.web)}" placeholder="https://"></label>`}
+    <label>Mailing address (optional, shows on your page only if filled in)<input type="text" id="f-mail" value="${esc(l.mail)}" placeholder="PO Box, city, state, zip"></label>
+    <label>Website (optional, shows on your page only if filled in)<input type="text" id="f-web" value="${esc(l.web)}" placeholder="https://"></label>`}
     ${l.gl?"":`<label>District<select id="f-dist" ${moveOk?"":"disabled"}>${districts().filter(d=>d!=="Grand Lodge").map(d=>`<option ${d===l.d?"selected":""}>${esc(d)}</option>`).join("")}</select>
       ${moveOk?"":`<span class="hint">Only Grand Lodge level roles can move a lodge to another district.</span>`}</label>`}
     ${!l.gl&&can("mergeLodges")?`<label>Lodge status (Grand Lodge officers only)<select id="f-status">${LSTATUS.map(x=>`<option ${x===lstat(l)?"selected":""}>${x}</option>`).join("")}</select><span class="hint">Changes are logged. Lodges that are not Active show a red status tag everywhere.</span></label>`:""}
