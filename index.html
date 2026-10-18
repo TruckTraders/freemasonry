@@ -1075,7 +1075,7 @@ function item(l){
   return `<button type="button" class="item" data-lodge="${l.n}" aria-current="${S.sel===l.n}"><span class="num">${l.gl?"GL":l.n}</span>
     <span style="min-width:0"><span class="iname">${esc(l.name)}</span><span class="isub">${esc(l.city||"—")} · ${l.gl?"Statewide body":l.d==="Statewide"?"Statewide":"Dist. "+esc(l.d)}</span></span><span>${tags}</span></button>`;
 }
-const OFFICES=["Worshipful Master","Senior Warden","Junior Warden","Treasurer","Secretary","Secretary Pro Tem","Chaplain","Senior Deacon","Junior Deacon","Senior Steward","Junior Steward","Marshal","Master of Ceremonies","Musician","Tiler"];
+const OFFICES=["Worshipful Master","Senior Warden","Junior Warden","Treasurer","Secretary","Chaplain","Senior Deacon","Junior Deacon","Senior Steward","Junior Steward","Marshal","Master of Ceremonies","Musician","Tiler"];
 const lodgeRe=l=>new RegExp("No\\.\\s*"+l.n+"\\b");
 function officeIn(p,l){const c=holds(p,"l:"+l.n).filter(t=>OFFICES.includes(t));
   c.sort((a,b)=>OFFICES.indexOf(a)-OFFICES.indexOf(b));return c[0]||""}
