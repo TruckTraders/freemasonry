@@ -1292,20 +1292,29 @@ function lawsView(){
   if(S.lawOpen){const i=A.findIndex(a=>a.n===S.lawOpen),a=A[i];
     if(!a){S.lawOpen=null;return lawsView()}
     const pv=A[i-1],nx=A[i+1];
-    return `<div class="stack">${back}<article class="mon-sheet"><div class="mon-top">${esc((a.ti||"").replace(/^TITLE\s+/,"Title "))} · ${esc((a.c||"").replace(/^CHAPTER\s+/,"Chapter "))}</div><h2 class="title">Art. ${esc(a.n)}${a.t?". "+esc(a.t):""}</h2>${a.x?a.x.split("\n").map(l=>`<p>${lawText(l)}</p>`).join(""):`<p class="hint">No text. This article is shown as repealed or deleted in the book.</p>`}</article>
+    return `<div class="stack">${back}<article class="mon-sheet"><div class="mon-top">${esc((a.ti||"").replace(/^TITLE\s+/,"Title "))} · ${esc((a.c||"").replace(/^CHAPTER\s+/,"Chapter "))}</div><h2 class="title">Art. ${esc(a.n)}${a.t?". "+esc(a.t):""}</h2>${a.x?a.x.split("\n").map(l=>`<p>${lawText(l)}</p>`).join(""):`<p class="hint">No text. This article is shown as repealed or deleted in the book.</p>`}${(a.d||[]).length?`<h3 class="sub" style="margin:18px 0 6px">Grand Master's decisions on this article (${a.d.length})</h3>${a.d.map(d=>`<div class="mon-ed" style="margin:0 0 10px;border-left-color:var(--acc,#2f5d8a)"><b>Grand Master's Decision ${d.y}, No. ${d.no}</b>${d.x.split("\n").map(l=>`<p style="margin:6px 0 0">${lawText(l)}</p>`).join("")}</div>`).join("")}`:""}</article>
       <div class="actions" style="margin:0;gap:8px;flex-wrap:wrap">${pv?`<button type="button" class="btn ghost small" data-act="law-open" data-n="${esc(pv.n)}">← Art. ${esc(pv.n)}</button>`:""}${nx?`<button type="button" class="btn small" data-act="law-open" data-n="${esc(nx.n)}">Art. ${esc(nx.n)} →</button>`:""}</div>${disc}</div>`}
   const q=(S.lawq||"").trim().toLowerCase();
   let list="";
-  if(q){
+  if(S.lawMode==="dec"){
+    const all=[];A.forEach(a=>(a.d||[]).forEach(d=>all.push({a,d})));
+    const hit=q?all.filter(({a,d})=>(d.y+" "+d.no+" "+a.n+" "+a.t+" "+d.x).toLowerCase().includes(q)):all;
+    hit.sort((x,y)=>y.d.y-x.d.y||y.d.no-x.d.no);
+    list=`<div class="hint" style="margin:0">${hit.length} of ${all.length} decisions, newest first.</div>${hit.slice(0,60).map(({a,d})=>`<button type="button" class="card" data-act="law-open" data-n="${esc(a.n)}"><span class="eyebrow">${d.y}, No. ${d.no} · Art. ${esc(a.n)}</span><span class="t">${esc(a.t||"(repealed)")}</span><span class="isub">${esc(d.x.replace(/\s+/g," ").slice(0,170))}…</span></button>`).join("")}${hit.length>60?`<div class="hint">Showing the first 60. Narrow the search to see the rest.</div>`:""}`;
+  }
+  else if(q){
     const num=q.replace(/^art(icle|\.)?\s*/,"");
-    const hits=A.map(a=>{let sc=0;if(a.n.toLowerCase()===num)sc=100;else if(a.t.toLowerCase().includes(q))sc=50;else if(a.x.toLowerCase().includes(q))sc=10;return {a,sc}}).filter(h=>h.sc).sort((x,y)=>y.sc-x.sc).slice(0,40);
-    list=hits.length?`<div class="cards">${hits.map(({a})=>{const k=a.x.toLowerCase().indexOf(q),sn=k>=0?"…"+a.x.slice(Math.max(0,k-60),k+110).replace(/\n/g," ")+"…":a.x.slice(0,140).replace(/\n/g," ");
-      return `<button type="button" class="card" data-act="law-open" data-n="${esc(a.n)}"><span class="eyebrow">Art. ${esc(a.n)}</span><span class="t">${esc(a.t||"(repealed)")}</span><span class="isub">${esc(sn)}</span></button>`}).join("")}</div>`:`<div class="panel empty">Nothing matches "${esc(S.lawq)}".</div>`}
+    const hits=A.map(a=>{let sc=0;if(a.n.toLowerCase()===num)sc=100;else if(a.t.toLowerCase().includes(q))sc=50;else if(a.x.toLowerCase().includes(q))sc=10;else if((a.d||[]).some(d=>d.x.toLowerCase().includes(q)))sc=5;return {a,sc}}).filter(h=>h.sc).sort((x,y)=>y.sc-x.sc).slice(0,40);
+    if(S.lawOnly)hits.splice(0,hits.length,...hits.filter(h=>(h.a.d||[]).length));
+    list=hits.length?`<div class="cards">${hits.map(({a})=>{const k=a.x.toLowerCase().indexOf(q),dd=k<0?(a.d||[]).find(d=>d.x.toLowerCase().includes(q)):null,sn=k>=0?"…"+a.x.slice(Math.max(0,k-60),k+110).replace(/\n/g," ")+"…":dd?"In Grand Master's Decision "+dd.y+", No. "+dd.no+": …"+dd.x.slice(Math.max(0,dd.x.toLowerCase().indexOf(q)-50),dd.x.toLowerCase().indexOf(q)+100).replace(/\n/g," ")+"…":a.x.slice(0,140).replace(/\n/g," ");
+      return `<button type="button" class="card" data-act="law-open" data-n="${esc(a.n)}"><span class="eyebrow">Art. ${esc(a.n)}${(a.d||[]).length?` · ${a.d.length} decision${a.d.length>1?"s":""}`:""}</span><span class="t">${esc(a.t||"(repealed)")}</span><span class="isub">${esc(sn)}</span></button>`}).join("")}</div>`:`<div class="panel empty">Nothing matches "${esc(S.lawq)}".</div>`}
   else{
     const gr=[];A.forEach(a=>{let t=gr.find(x=>x.ti===a.ti);if(!t){t={ti:a.ti,ch:[]};gr.push(t)}let c=t.ch.find(x=>x.c===a.c);if(!c){c={c:a.c,a:[]};t.ch.push(c)}c.a.push(a)});
-    list=gr.map(t=>`<details class="panel pad"><summary style="cursor:pointer;font-weight:600">${esc((t.ti||"").replace(/^TITLE\s+/,"Title "))}</summary>${t.ch.map(c=>`<details style="margin:8px 0 0 12px"><summary style="cursor:pointer">${esc((c.c||"").replace(/^CHAPTER\s+/,"Chapter "))} <span class="isub">${c.a.length}</span></summary><ul class="resume">${c.a.map(a=>`<li><button type="button" class="linkbtn" data-act="law-open" data-n="${esc(a.n)}">Art. ${esc(a.n)}. ${esc(a.t||"(repealed)")}</button></li>`).join("")}</ul></details>`).join("")}</details>`).join("")}
-  return `<div class="stack">${back}<div><h2 class="title" style="margin:0 0 6px">${esc(LAWS.title)}</h2><p class="hint" style="margin:0">${esc(LAWS.edition)} · ${A.length} articles. Search by article number (like 445) or by a word or phrase.</p></div>
-    <input type="text" id="lawq" placeholder="Search the Laws, e.g. 445 or jurisdiction" value="${esc(S.lawq||"")}" aria-label="Search the Laws">${list}${disc}</div>`}
+    list=gr.map(t=>`<details class="panel pad"><summary style="cursor:pointer;font-weight:600">${esc((t.ti||"").replace(/^TITLE\s+/,"Title "))}</summary>${t.ch.map(c=>`<details style="margin:8px 0 0 12px"><summary style="cursor:pointer">${esc((c.c||"").replace(/^CHAPTER\s+/,"Chapter "))} <span class="isub">${c.a.length}</span></summary><ul class="resume">${c.a.map(a=>`<li><button type="button" class="linkbtn" data-act="law-open" data-n="${esc(a.n)}">Art. ${esc(a.n)}. ${esc(a.t||"(repealed)")}</button>${(a.d||[]).length?` <span class="chip">${a.d.length} decision${a.d.length>1?"s":""}</span>`:""}</li>`).join("")}</ul></details>`).join("")}</details>`).join("")}
+  return `<div class="stack">${back}<div><h2 class="title" style="margin:0 0 6px">${esc(LAWS.title)}</h2><p class="hint" style="margin:0">${esc(LAWS.edition)} · ${A.length} articles · ${A.reduce((n,a)=>n+(a.d||[]).length,0)} Grand Master's decisions, each shown under the article it interprets. Decisions after the 2025 revision are not in the book.</p></div>
+    <div class="seg" role="tablist" aria-label="Laws views"><button type="button" class="btn small ${S.lawMode==="dec"?"ghost":""}" data-act="law-mode" data-m="art">Articles</button> <button type="button" class="btn small ${S.lawMode==="dec"?"":"ghost"}" data-act="law-mode" data-m="dec">Grand Master's decisions</button></div>
+    <input type="text" id="lawq" placeholder="${S.lawMode==="dec"?"Search decisions, e.g. 1960 or Association":"Search the Laws, e.g. 445 or jurisdiction"}" value="${esc(S.lawq||"")}" aria-label="Search the Laws">
+    ${S.lawMode==="dec"?"":`<label class="hint" style="display:flex;gap:6px;align-items:center;margin:0"><input type="checkbox" id="law-only" ${S.lawOnly?"checked":""}> Only articles with Grand Master's decisions</label>`}${list}${disc}</div>`}
 function monitorView(){
   const d=degreeOf();
   const back=`<div class="actions" style="margin:0"><button class="btn ghost small" type="button" data-act="mon-back">← ${S.monSec?"Contents":"Resources"}</button></div>`;
@@ -1669,7 +1678,7 @@ const RES0=[
     ["Monitor memorization drills","Interactive drills for all three degrees, right here in the Trestle Board.","app:drills","Open drills"]]},
   {sec:"Law and rules",items:[
     ["Laws of the Grand Lodge","The law book ("+(LAWS.edition||"Revised")+"), searchable by article number or word.",LAWS.arts.length?"app:laws":null,"Open laws"],
-    ["Grand Master's decisions and edicts","Current rulings and edicts from the Grand Master."],
+    ["Grand Master's decisions and edicts","Rulings of the Grand Master, "+(LAWS.arts.reduce((n,a)=>n+(a.d||[]).length,0))+" in all through the 2025 revision, each linked to the article it interprets. Newer ones are not in the book yet.",LAWS.arts.length?"app:decisions":null,"Open decisions"],
     ["Lodge bylaws","Your own lodge's bylaws."]]},
   {sec:"Forms and officer guides",min:"MM",items:[
     ["Grand Lodge forms","Petitions, affiliation, reinstatement, demits and other official forms."],
@@ -1693,7 +1702,7 @@ function resView(){
   return `<div class="stack"><div><h2 class="title" style="margin:0 0 6px">Resources</h2>
     <p class="hint" style="margin:0">Study materials and Grand Lodge resources for Texas Masons.${signedIn()?"":" Sign in to open them once they're added."}</p></div>
     ${RES.map((g,gi)=>resItems(g).length?`<div id="res-${gi}" class="${g.sec==="Texas Monitor"?"panel pad":""}" style="scroll-margin-top:12px"><h3 class="sub" style="margin-bottom:${g.note?"2px":"10px"}">${g.sec}</h3>${g.note?`<p class="hint" style="margin:0 0 12px">${g.note}</p>`:""}
-      <div class="cards">${resItems(g).map(([t,d,u,c])=>u==="app:laws"?`<button type="button" class="card" data-act="open-laws"><span class="t">${t}</span><span class="isub">${d}</span><span><span class="chip mem">${c||"Open"}</span></span></button>`:u==="app:monitor"?`<button type="button" class="card" data-act="open-monitor"><span class="t">${t}</span><span class="isub">${d}</span><span><span class="chip mem">${c||"Open"}</span></span></button>`:u==="app:drills"?`<button type="button" class="card" data-act="open-drills"><span class="t">${t}</span><span class="isub">${d}</span><span><span class="chip mem">${c||"Open"}</span></span></button>`:u?`<a class="card" href="${u}" target="_blank" rel="noopener" data-ext="${u}"><span class="t">${t}</span><span class="isub">${d}</span><span><span class="chip mem">${c||"Open PDF"}</span></span></a>`:`<button type="button" class="card" data-act="res" data-res="${esc(t)}"><span class="t">${t}</span><span class="isub">${d}</span><span><span class="chip">${g.sec==="Texas Monitor"?"Coming soon":"Suggested"}</span></span></button>`).join("")}</div></div>`:"").join("")}
+      <div class="cards">${resItems(g).map(([t,d,u,c])=>u==="app:decisions"?`<button type="button" class="card" data-act="open-laws" data-m="dec"><span class="t">${t}</span><span class="isub">${d}</span><span><span class="chip mem">${c||"Open"}</span></span></button>`:u==="app:laws"?`<button type="button" class="card" data-act="open-laws"><span class="t">${t}</span><span class="isub">${d}</span><span><span class="chip mem">${c||"Open"}</span></span></button>`:u==="app:monitor"?`<button type="button" class="card" data-act="open-monitor"><span class="t">${t}</span><span class="isub">${d}</span><span><span class="chip mem">${c||"Open"}</span></span></button>`:u==="app:drills"?`<button type="button" class="card" data-act="open-drills"><span class="t">${t}</span><span class="isub">${d}</span><span><span class="chip mem">${c||"Open"}</span></span></button>`:u?`<a class="card" href="${u}" target="_blank" rel="noopener" data-ext="${u}"><span class="t">${t}</span><span class="isub">${d}</span><span><span class="chip mem">${c||"Open PDF"}</span></span></a>`:`<button type="button" class="card" data-act="res" data-res="${esc(t)}"><span class="t">${t}</span><span class="isub">${d}</span><span><span class="chip">${g.sec==="Texas Monitor"?"Coming soon":"Suggested"}</span></span></button>`).join("")}</div></div>`:"").join("")}
   </div>`;
 }
 
@@ -1803,7 +1812,8 @@ document.addEventListener("click",e=>{
     case "vote":{const po=S.posts.find(x=>x.id===t.dataset.post);if(!po||!po.poll||!canSeePost(po))break;const i=+t.dataset.i,had=po.poll[i].v.includes(S.user);po.poll.forEach(o=>{o.v=o.v.filter(x=>x!==S.user)});if(!had)po.poll[i].v.push(S.user);render();break}
     case "pic":{const po=S.posts.find(x=>x.id===t.dataset.post);const u=po&&po.pics&&po.pics[+t.dataset.i];if(!u)break;const d=document.createElement("div");d.className="lbx";d.innerHTML=`<img src="${u}" alt="Photo">`;d.onclick=()=>d.remove();document.body.appendChild(d);break}
     case "open-drills":S.prevTab=S.tab;S.tab="drills";S.drillSlug=null;render();scrollTo(0,0);playDrillIntro();break
-    case "open-laws":S.tab="laws";S.lawOpen=null;render();scrollTo(0,0);break
+    case "open-laws":S.tab="laws";S.lawOpen=null;S.lawMode=t.dataset.m||"art";render();scrollTo(0,0);break
+    case "law-mode":S.lawMode=t.dataset.m;S.lawOpen=null;render();break
     case "law-open":S.tab="laws";S.lawOpen=t.dataset.n;render();scrollTo(0,0);break
     case "law-back":if(S.lawOpen){S.lawOpen=null}else{S.tab="res"}render();scrollTo(0,0);break
     case "open-monitor":S.tab="monitor";S.monSec=null;render();scrollTo(0,0);break
@@ -1999,6 +2009,7 @@ document.addEventListener("input",e=>{
   if(e.target.id==="msg-first"){S.msgFirst=e.target.value;return}
   if(e.target.id==="msg-group"){S.msgGroup=e.target.value;return}
   if(e.target.id==="gq"){UI.gq=e.target.value;const pos=e.target.selectionStart;render();const i=document.getElementById("gq");i.focus();i.setSelectionRange(pos,pos);return}
+  if(e.target.id==="law-only"){S.lawOnly=e.target.checked;render();return}
   if(e.target.id==="lawq"){S.lawq=e.target.value;const pos=e.target.selectionStart;render();const i=document.getElementById("lawq");i.focus();i.setSelectionRange(pos,pos);return}
   if(e.target.id==="mq"){S.mq=e.target.value;const pos=e.target.selectionStart;render();const i=document.getElementById("mq");i.focus();i.setSelectionRange(pos,pos);}
 });
