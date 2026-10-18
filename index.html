@@ -674,7 +674,7 @@ const today=new Date();
 const pad=n=>String(n).padStart(2,"0");
 const ymd=(y,m,d)=>`${y}-${pad(m+1)}-${pad(d)}`;
 const TODAY=ymd(today.getFullYear(),today.getMonth(),today.getDate());
-function fresh(){return{user:"public",tab:"feed",sel:304,q:"",dist:"",mq:"",prof:"p0",edits:{},follows:{},
+function fresh(){return{user:"public",tab:"feed",sel:304,q:"",dist:"",mq:"",prof:"p0",edits:{},manual:{},follows:{},
   roles:clone(DEFAULT_ROLES),profiles:clone(DEFAULT_PROFILES),events:clone(DEFAULT_EVENTS),log:[],
   calY:today.getFullYear(),calM:today.getMonth(),calDay:null,calScope:"mine",posts:[],feedFilter:"all",postTo:""}}
 let S=Object.assign(fresh(),load()||{});
@@ -1077,10 +1077,13 @@ const lodgeRe=l=>new RegExp("No\\.\\s*"+l.n+"\\b");
 function officeIn(p,l){const c=holds(p,"l:"+l.n).filter(t=>OFFICES.includes(t));
   c.sort((a,b)=>OFFICES.indexOf(a)-OFFICES.indexOf(b));return c[0]||""}
 const lodgeRoster=l=>Object.entries(S.profiles).filter(([,p])=>p.lodges.some(x=>x.n===l.n&&!x.pending));
+const manualOf=(l,o)=>(((S.manual||{})[l.n])||{})[o]||"";
 function officerList(l){
-  const rows=Object.entries(S.profiles).map(([id,p])=>({id,p,o:officeIn(p,l)})).filter(x=>x.o).sort((a,b)=>OFFICES.indexOf(a.o)-OFFICES.indexOf(b.o));
+  const lk=Object.entries(S.profiles).map(([id,p])=>({id,p,o:officeIn(p,l)})).filter(x=>x.o);
+  const mn=OFFICES.filter(o=>manualOf(l,o)&&!lk.some(x=>x.o===o)).map(o=>({m:manualOf(l,o),o}));
+  const rows=[...lk,...mn].sort((a,b)=>OFFICES.indexOf(a.o)-OFFICES.indexOf(b.o));
   if(!rows.length)return `<p class="hint">No officers listed yet.${canEdit(l)?" Use Edit lodge info to assign them.":""}</p>`;
-  return `<div class="cards">${rows.map(r=>`<button type="button" class="card" data-person="${r.id}"><span style="display:flex;gap:10px;align-items:center"><span class="avatar">${initials(r.p.name)}</span><span class="t">${esc(r.p.name)}</span></span><span><span class="chip acc">${esc(r.o)}</span></span></button>`).join("")}</div>`}
+  return `<div class="cards">${rows.map(r=>r.m?`<div class="card"><span style="display:flex;gap:10px;align-items:center"><span class="avatar">${initials(r.m)}</span><span class="t">${esc(r.m)}</span></span><span><span class="chip acc">${esc(r.o)}</span> <span class="isub">Not on the site yet</span></span></div>`:`<button type="button" class="card" data-person="${r.id}"><span style="display:flex;gap:10px;align-items:center"><span class="avatar">${initials(r.p.name)}</span><span class="t">${esc(r.p.name)}</span></span><span><span class="chip acc">${esc(r.o)}</span></span></button>`).join("")}</div>`}
 const APP_STATUS=["Received","Elected","Rejected","Withdrawn","Initiated"];
 const normName=n=>String(n||"").toLowerCase().replace(/\b(jr|sr|ii|iii|iv)\b\.?/g," ").replace(/[^a-z\s]/g," ").replace(/\s+/g," ").trim();
 const ensureApps=()=>{if(!S.apps)S.apps=[];return S.apps};
@@ -1107,9 +1110,10 @@ function officerManager(l){
   if(l.gl||!canEdit(l))return "";
   const ros=lodgeRoster(l).sort((a,b)=>a[1].name.localeCompare(b[1].name));
   const holder=o=>{const h=ros.find(([,p])=>holds(p,"l:"+l.n).includes(o));return h?h[0]:""};
-  return `<div class="section"><h3 class="sub">Officers</h3><p class="hint" style="margin:0 0 10px">Pick a member for each office. Only members of this lodge can be chosen. The title shows on his profile and next to his name.</p>
-  <div class="stack" style="padding:0;gap:8px">${OFFICES.map((o,i)=>{const h=holder(o);return `<div class="inline-form" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><b style="min-width:150px">${o}</b>
-    <select id="off-${i}" aria-label="${o}"><option value="">Vacant</option>${ros.map(([id,p])=>`<option value="${id}" ${id===h?"selected":""}>${esc(p.name)} (${degP(p)})</option>`).join("")}</select>
+  return `<div class="section"><h3 class="sub">Officers</h3><p class="hint" style="margin:0 0 10px">For each office, pick a member of this lodge, or choose "Type a name" if he is not on the site yet. A picked member gets the title on his profile. A typed name is just text. When he joins, come back here and switch the office to him.</p>
+  <div class="stack" style="padding:0;gap:8px">${OFFICES.map((o,i)=>{const h=holder(o),mv=h?"":manualOf(l,o);return `<div class="inline-form" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><b style="min-width:150px">${o}</b>
+    <select id="off-${i}" class="off-sel" data-i="${i}" aria-label="${o}"><option value="">Vacant</option>${ros.map(([id,p])=>`<option value="${id}" ${id===h?"selected":""}>${esc(p.name)} (${degP(p)})</option>`).join("")}<option value="__manual" ${mv?"selected":""}>Type a name (not a member yet)</option></select>
+    <input type="text" id="offt-${i}" value="${esc(mv)}" placeholder="Full name" aria-label="${o} name" style="${mv?"":"display:none"}">
     <button class="btn small" type="button" data-act="off-set" data-i="${i}">Save</button></div>`}).join("")}</div></div>
   <div class="section"><h3 class="sub">Add a member or applicant</h3><p class="hint" style="margin:0 0 10px">The lodge makes the Mason, so you enter his name, email and where he stands (applicant, Entered Apprentice, Fellowcraft or Master Mason) and he gets an invitation to sign in. An Entered Apprentice or Fellowcraft belongs to this one lodge only.</p>
   ${UI.addWarn?`<div class="mon-ed" style="border-left-color:#b3261e;max-width:480px;margin-bottom:10px"><b>Possible duplicate: ${esc(UI.addWarn.nm)}</b>${UI.addWarn.hits.map(h=>`<div>${esc(dupText(h))}</div>`).join("")}<div class="actions" style="margin:8px 0 0;gap:6px"><button class="btn small" type="button" data-act="add-anyway">Record anyway</button><button class="btn small ghost" type="button" data-act="add-cancel">Cancel</button></div></div>`:""}<form class="panel pad" id="addmemberform" data-lodgeno="${l.n}" style="display:grid;gap:8px;max-width:480px">
@@ -2006,8 +2010,12 @@ document.addEventListener("click",e=>{
     case "del-post":S.posts=S.posts.filter(p=>p.id!==t.dataset.id);toast("Post deleted");render();break;
     case "res":toast(`${t.dataset.res} is planned`);break;
     case "off-set":{const l=byNum(S.sel);if(!l||!canEdit(l))break;const o=OFFICES[+t.dataset.i],pid=(document.getElementById("off-"+t.dataset.i)||{}).value||"";
+      const typed=pid==="__manual"?((document.getElementById("offt-"+t.dataset.i)||{}).value||"").trim().replace(/\s+/g," "):"";
+      if(pid==="__manual"&&!typed){toast("Type a name first, or choose Vacant");break}
+      if(!S.manual)S.manual={};if(!S.manual[l.n])S.manual[l.n]={};
+      if(typed)S.manual[l.n][o]=typed;else delete S.manual[l.n][o];
       Object.values(S.profiles).forEach(p=>{p.current=(p.current||[]).filter(c=>!(String(c.title||"").trim()===o&&((c.ref&&refKey(c.ref)==="l:"+l.n)||lodgeRe(l).test(String(c.body||"")))))});
-      if(pid&&S.profiles[pid]){S.profiles[pid].current.unshift({title:o,body:`${l.name} Lodge No. ${l.n}`,ref:{t:"l",id:l.n},year:String(new Date().getFullYear())})}
+      if(pid&&pid!=="__manual"&&S.profiles[pid]){S.profiles[pid].current.unshift({title:o,body:`${l.name} Lodge No. ${l.n}`,ref:{t:"l",id:l.n},year:String(new Date().getFullYear())})}
       toast(pid?`${o} saved`:`${o} is now vacant`);render();break}
     case "add-anyway":{const w=UI.addWarn,l=w&&byNum(w.lodge);if(w&&l&&canEdit(l)){createMember(l,w.nm,w.em,w.dg,w.dt);UI.addWarn=null;toast(`${w.nm} added. Invitation emails go out once the site is live.`);render()}break}
     case "add-cancel":UI.addWarn=null;render();break;
@@ -2138,6 +2146,7 @@ document.addEventListener("submit",e=>{
 });
 document.addEventListener("change",e=>{
   const t=e.target;
+  if(t.classList&&t.classList.contains("off-sel")){const x=document.getElementById("offt-"+t.dataset.i);if(x){x.style.display=t.value==="__manual"?"":"none";if(t.value==="__manual")x.focus()}return}
   if(t.id==="viewas"){S.user=t.value;{const pr=S.profiles[(USERS.find(u=>u.id===t.value)||{}).profile];if(pr)pr.lastLogin=new Date().toISOString()}UI={editing:false,editProfile:false,adding:null,confirmDel:null};const u=me();const ml=myLodges().filter(n=>n!==0);if(ml.length)S.sel=ml[0];if(u.profile)S.prof=u.profile;render();toast(`Now viewing as ${u.label}`);return}
   if(t.dataset&&t.dataset.bylaw){const n=+t.dataset.bylaw,l=byNum(n),f=t.files&&t.files[0];t.value="";if(!l||!canEdit(l)||!f)return;
     if(!/pdf$/i.test(f.name)&&f.type!=="application/pdf"){toast("Please choose a PDF");return}
