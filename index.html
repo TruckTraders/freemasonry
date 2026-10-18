@@ -1596,14 +1596,39 @@ function refChoices(kind){const out=[];
   return out.map(r=>({...r,label:refLabel(r)}))}
 const tiedLodge=(p,c)=>{const n=c.ref&&c.ref.t==="l"?c.ref.id:(/No\.\s*(\d+)\b/.exec(String(c.body||""))||[])[1];return n&&p.lodges.some(x=>x.n===+n)?+n:0};
 function lodgesAndTitles(p,ed){
-  const rows=p.lodges.map(x=>{const l=byNum(x.n);if(!l)return "";
+  const mk=x=>{const l=byNum(x.n);if(!l)return "";
     const cur=(p.current||[]).map((c,i)=>({c,i})).filter(o=>tiedLodge(p,o.c)===x.n);
     const past=(p.past||[]).filter(c=>tiedLodge(p,c)===x.n);
     const chips=cur.map(o=>`<span class="chip acc">${esc(o.c.title)}</span>${ed?` <button class="xbtn" type="button" data-act="rm" data-list="current" data-i="${o.i}" aria-label="Remove ${esc(o.c.title)}">Remove</button>`:""}`);
     if(!l.gl&&!x.pending)chips.push(`<span class="chip">${esc(DTITLE[degP(p)]||"Member")}</span>`);
-    return `<li><span><button type="button" class="linkbtn what" data-lodge-open="${l.n}">${esc(lname(l))}</button><br><span class="where">${l.gl?"Grand Lodge":"District "+esc(l.d)} · ${esc(l.city)}</span><br><span style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">${chips.join(" ")}</span>${past.length?`<span class="where">Past: ${past.map(c=>esc(c.title)+(c.year?" "+esc(c.year):"")).join(", ")}</span>`:""}</span><span class="when">${x.pending?`<span class="chip pilot">Affiliation pending</span>`:x.since?"since "+esc(x.since):""}</span></li>`}).join("");
+    return `<li><span><button type="button" class="linkbtn what" data-lodge-open="${l.n}">${esc(lname(l))}</button><br><span class="where">${l.gl?"Grand Lodge":"District "+esc(l.d)} · ${esc(l.city)}</span><br><span style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">${chips.join(" ")}</span>${past.length?`<span class="where">Past: ${past.map(c=>esc(c.title)+(c.year?" "+esc(c.year):"")).join(", ")}</span>`:""}</span><span class="when">${x.pending?`<span class="chip pilot">Affiliation pending</span>`:x.since?"since "+esc(x.since):""}</span></li>`};
+  const grp={},order=[];
+  p.lodges.forEach(x=>{const l=byNum(x.n);if(!l)return;const k=l.gl?"Grand Lodge":"District "+l.d;if(!grp[k]){grp[k]=[];order.push(k)}grp[k].push(x)});
+  order.sort((a,b)=>(a==="Grand Lodge"?-1:b==="Grand Lodge"?1:0)||a.localeCompare(b,undefined,{numeric:true}));
+  const real=p.lodges.filter(x=>{const l=byNum(x.n);return l&&!l.gl&&!x.pending});
+  const nd=new Set(real.map(x=>byNum(x.n).d)).size;
+  const summ=real.length?`<p class="hint" style="margin:0 0 8px">Member of ${real.length} ${real.length===1?"lodge":"lodges"} in ${nd} ${nd===1?"district":"districts"}.</p>`:"";
+  const rows=order.map(k=>`<h4 class="eyebrow" style="margin:12px 0 4px">${esc(k)} · ${grp[k].length} ${grp[k].length===1?"lodge":"lodges"}</h4><ul class="resume">${grp[k].map(mk).join("")}</ul>`).join("");
   const other=(p.current||[]).some(c=>!tiedLodge(p,c));
-  return `<ul class="resume">${rows}</ul>${other?`<h4 class="eyebrow" style="margin:14px 0 4px">Other titles</h4>${resumeList(p.current,"current",ed,c=>!tiedLodge(p,c))}`:""}${ed?`<p class="hint">Lodge memberships are set by your lodge secretary. Add a title below and pick the lodge or body from the list.</p>${addRow("current")}`:""}`}
+  return `${summ}${rows}${other?`<h4 class="eyebrow" style="margin:14px 0 4px">Other titles</h4>${resumeList(p.current,"current",ed,c=>!tiedLodge(p,c))}`:""}${ed?`<p class="hint">Lodge memberships are set by your lodge secretary. Add a title below and pick the lodge or body from the list.</p>${addRow("current")}`:""}`}
+const entTied=c=>c.ref&&c.ref.t==="e"&&!!entById(c.ref.id);
+function bodiesAndTitles(p,ed){
+  const ids=[];(p.ents||[]).forEach(x=>{if(entById(x.id)&&!ids.includes(x.id))ids.push(x.id)});
+  ["bodies","current"].forEach(k=>(p[k]||[]).forEach(c=>{if(entTied(c)&&!ids.includes(c.ref.id))ids.push(c.ref.id)}));
+  const TY=["Scottish Rite","York Rite","Shrine"],LV={orient:0,valley:1,body:2};
+  const grp={};ids.forEach(id=>{const b=entById(id);(grp[b.t]=grp[b.t]||[]).push(b)});
+  const types=Object.keys(grp).sort((a,b)=>(TY.indexOf(a)<0?9:TY.indexOf(a))-(TY.indexOf(b)<0?9:TY.indexOf(b)));
+  const nm=ids.filter(id=>{const x=entMem(p,id);return x&&!x.pending}).length;
+  const summ=ids.length?`<p class="hint" style="margin:0 0 8px">${nm?`Member of ${nm} ${nm===1?"body":"bodies"} in ${types.length} ${types.length===1?"order":"orders"}.`:"No memberships confirmed yet."}</p>`:"";
+  const row=b=>{const x=entMem(p,b.id);
+    const tl=[];["bodies","current"].forEach(k=>(p[k]||[]).forEach((c,i)=>{if(entTied(c)&&c.ref.id===b.id)tl.push({c,k,i})}));
+    const chips=tl.map(o=>`<span class="chip acc">${esc(o.c.title)}</span>${ed?` <button class="xbtn" type="button" data-act="rm" data-list="${o.k}" data-i="${o.i}" aria-label="Remove ${esc(o.c.title)}">Remove</button>`:""}`);
+    if(x&&!x.pending)chips.push(`<span class="chip">Member</span>`);
+    const sub=b.lvl==="orient"?"Texas Scottish Rite":b.lvl==="valley"?"Valley · "+esc(b.city||""):b.lvl==="body"?esc(b.bn||"")+(b.degs?" · Degrees "+esc(b.degs):""):b.t==="Shrine"?"Shrine temple"+(b.city?" · "+esc(b.city):""):esc(BKIND[b.k]||b.t)+(b.city?" · "+esc(b.city):"");
+    return `<li><span><button type="button" class="linkbtn what" data-act="ent-open" data-bid="${esc(b.id)}">${esc(bodyTitle(b))}</button><br><span class="where">${sub}</span><br><span style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">${chips.join(" ")}</span></span><span class="when">${x&&x.pending?`<span class="chip pilot">Membership pending</span>`:x&&x.since?"since "+esc(x.since):""}</span></li>`};
+  const rows=types.map(t=>`<h4 class="eyebrow" style="margin:12px 0 4px">${esc(t)} · ${grp[t].length} ${grp[t].length===1?"body":"bodies"}</h4><ul class="resume">${grp[t].sort((a,b)=>(LV[a.lvl]??5)-(LV[b.lvl]??5)||bodyTitle(a).localeCompare(bodyTitle(b))).map(row).join("")}</ul>`).join("");
+  const other=(p.bodies||[]).some(c=>!entTied(c));
+  return `${summ}${rows}${other?`<h4 class="eyebrow" style="margin:14px 0 4px">${ids.length?"Other titles":"Titles"}</h4>${resumeList(p.bodies||[],"bodies",ed,c=>!entTied(c))}`:(ids.length?"":`<p class="hint">${ed?"Nothing added yet.":"None listed."}</p>`)}`}
 function refLink(b,ref){
   if(!ref){const m=/No\.\s*(\d+)\b/.exec(String(b||""));if(m&&byNum(+m[1]))ref={t:"l",id:+m[1]}}
   if(ref&&ref.t==="l"&&byNum(ref.id)) return `<button type="button" class="linklike" data-lodge-open="${ref.id}">${esc(b)}</button>`;
@@ -1658,7 +1683,7 @@ function profileDetail(id){
   <div class="section"><h3 class="sub">Mentoring</h3>${signedIn()?mentorBlock(id):`<p class="hint">Sign in to see mentoring.</p>`}</div>
   ${ed||(p.past||[]).some(c=>!tiedLodge(p,c))?`<div class="section"><h3 class="sub">${ed?"Past titles":"Other past titles"}</h3>${ed?resumeList(p.past,"past",ed):resumeList(p.past,"past",false,c=>!tiedLodge(p,c))}${ed?addRow("past"):""}</div>`:""}
   <div class="section"><h3 class="sub">Esoteric certificates</h3>${resumeList(p.certs,"certs",ed)}${ed?addRow("certs"):""}</div>
-  <div class="section"><h3 class="sub">Other Masonic bodies</h3>${(p.ents||[]).filter(x=>!x.pending&&entById(x.id)).length?`<p class="hint" style="margin:0 0 8px">Member of: ${(p.ents||[]).filter(x=>!x.pending&&entById(x.id)).map(x=>`<button type="button" class="linkbtn" data-act="ent-open" data-bid="${x.id}">${esc(bodyTitle(entById(x.id)))}</button>`).join(", ")}</p>`:""}${resumeList(p.bodies,"bodies",ed)}${ed?addRow("bodies"):""}</div>
+  <div class="section"><h3 class="sub">Other Masonic bodies</h3>${bodiesAndTitles(p,ed)}${ed?addRow("bodies"):""}</div>
   <div class="section"><h3 class="sub">Contact</h3>${ed?`<form class="edit" id="contactform">${!own?`<p class="hint" style="margin:0">You are editing ${esc(p.name)}'s profile as a Super Admin.</p>`:""}
       <label>Name<input type="text" id="c-name" value="${esc(p.name)}"></label>
       ${fields.filter(([f])=>f!=="address").map(([f,lab])=>`<div class="acct-row"><label>${lab}<input type="${f==="email"?"email":"tel"}" id="c-${f}" value="${esc(ct(p,f).v)}"></label><div style="display:grid;gap:4px;justify-items:end">${segHtml("pv-"+f,vOf(ct(p,f)))}</div></div>`).join("")}
