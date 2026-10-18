@@ -761,9 +761,9 @@ function tabs(){
     {k:"members",l:"Masons",main:"members",sub:[["members","Find a Mason"],...(pr?[["members:profile","My profile"],["members:card","My card"],["members:mentor","Mentoring"],["members:messages","Messages",un]]:[])]},
     {k:"res",l:"Resources",main:"res",sub:RES.map((g,i)=>resItems(g).length?["res:"+i,g.sec]:null).filter(Boolean)}];
   if(adm) T.push({k:"admin",l:"Admin"});
-  if(S.tab!=="account"&&S.tab!=="profile"&&S.tab!=="messages"&&S.tab!=="card"&&S.tab!=="drills"&&S.tab!=="monitor"&&S.tab!=="laws"&&S.tab!=="mentor"&&S.tab!=="cal"&&!T.find(x=>x.k===S.tab)) S.tab="dir";
+  if(S.tab!=="account"&&S.tab!=="profile"&&S.tab!=="messages"&&S.tab!=="card"&&S.tab!=="drills"&&S.tab!=="monitor"&&S.tab!=="laws"&&S.tab!=="bylaws"&&S.tab!=="mentor"&&S.tab!=="cal"&&!T.find(x=>x.k===S.tab)) S.tab="dir";
   document.getElementById("tabs").innerHTML=T.map(g=>{
-    const sel=S.tab===g.k||(g.k==="feed"&&S.tab==="cal")||(g.k==="res"&&(S.tab==="drills"||S.tab==="monitor"||S.tab==="laws"))||(g.k==="members"&&(S.tab==="mentor"||S.tab==="card"));
+    const sel=S.tab===g.k||(g.k==="feed"&&S.tab==="cal")||(g.k==="res"&&(S.tab==="drills"||S.tab==="monitor"||S.tab==="laws"||S.tab==="bylaws"))||(g.k==="members"&&(S.tab==="mentor"||S.tab==="card"));
     if(!g.sub) return `<div class="tabgrp"><button role="tab" type="button" data-tab="${g.k}" aria-selected="${sel}">${g.l}</button></div>`;
     const open=UI.navMenu===g.k;
     return `<div class="tabgrp"><button role="tab" type="button" data-go="${g.main}" aria-selected="${sel}">${g.l}</button><button type="button" class="caret" data-act="navmenu" data-grp="${g.k}" aria-haspopup="true" aria-expanded="${open}" aria-selected="${sel}" aria-label="${g.l} menu"><span aria-hidden="true">▾</span></button>${open?`<div class="subnav" role="menu">${g.sub.map(([go,lab,n])=>`<button type="button" role="menuitem" data-go="${go}">${lab}${n?`<span class="badge">${n}</span>`:""}</button>`).join("")}</div>`:""}</div>`}).join("");
@@ -790,7 +790,7 @@ function render(){
   document.body.classList.toggle("out",!signedIn());
   if(!signedIn()){document.getElementById("tabs").innerHTML="";v.innerHTML=loginView();save();return}
   tabs();
-  v.innerHTML=({feed:feedView,dir:dirView,bodies:bodiesView,cal:calView,members:membersView,res:resView,admin:adminView,account:accountView,profile:profileView,messages:messagesView,card:cardView,drills:drillsView,monitor:monitorView,laws:lawsView,mentor:mentorView})[S.tab]();
+  v.innerHTML=({feed:feedView,dir:dirView,bodies:bodiesView,cal:calView,members:membersView,res:resView,admin:adminView,account:accountView,profile:profileView,messages:messagesView,card:cardView,drills:drillsView,monitor:monitorView,laws:lawsView,bylaws:bylawsView,mentor:mentorView})[S.tab]();
   if(S.tab==="messages") renderAcct();
   if(S.tab==="drills") drillMountNow();
   const cur=v.querySelector('.item[aria-current=true]'); if(cur) cur.scrollIntoView({block:"nearest"});
@@ -1030,7 +1030,7 @@ function lodgeDetail(){
     <dt>District</dt><dd>${esc(l.d)}</dd>
   </dl>
   <div class="section"><h3 class="sub">Calendar</h3>${lodgeCal(l)}</div>
-  ${l.gl?"":`<div class="section"><h3 class="sub">Officers</h3>${canSeePrivate(l)?officerList(l):`<p class="locked">🔒 Only members of ${esc(lname(l))} can see the officers.</p>`}</div>`}
+  ${bylawsBlock(l)}${l.gl?"":`<div class="section"><h3 class="sub">Officers</h3>${canSeePrivate(l)?officerList(l):`<p class="locked">🔒 Only members of ${esc(lname(l))} can see the officers.</p>`}</div>`}
   ${l.gl?"":pendSection("l:"+l.n,lname(l))}${l.gl?"":posManager("l:"+l.n)}
   <div class="section"><h3 class="sub">${l.gl?"Grand Lodge officers":"Members"}</h3>${l.gl||canSeePrivate(l)
     ?(roster.length?`<div class="cards">${roster.map(([id,p])=>personCard(id,p,l.n)).join("")}</div>`:`<p class="hint">No ${l.gl?"officers":"members"} have joined on the Hub yet.</p>`)
@@ -1283,6 +1283,28 @@ function monResults(){
     const a=Math.max(0,i-50),sn=(a?"…":"")+txt.slice(a,i+q.length+80)+"…";return {sec,sn}}).filter(Boolean);
   if(!hits.length)return `<p class="hint">Nothing found for “${esc(S.monQ)}” in the sections open to you.</p>`;
   return `<div class="dgrp">${hits.map(h=>`<button type="button" class="dbtn mres" data-act="mon-open" data-id="${h.sec.id}"><span>${esc(h.sec.title)}<small>${esc(h.sn)}</small></span><span class="pg">p. ${esc(h.sec.pages)}</span></button>`).join("")}</div>`}
+/* ---------- lodge bylaws (PDFs kept in this browser's IndexedDB; details in S.bylaws) ---------- */
+const idbOpen=()=>new Promise((res,rej)=>{const r=indexedDB.open("tlh-files",1);r.onupgradeneeded=()=>r.result.createObjectStore("f");r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
+const fput=async(k,v)=>{const d=await idbOpen();return new Promise((res,rej)=>{const t=d.transaction("f","readwrite");t.objectStore("f").put(v,k);t.oncomplete=res;t.onerror=()=>rej(t.error)})};
+const fget=async k=>{const d=await idbOpen();return new Promise((res,rej)=>{const r=d.transaction("f").objectStore("f").get(k);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})};
+const fdel=async k=>{const d=await idbOpen();return new Promise((res,rej)=>{const t=d.transaction("f","readwrite");t.objectStore("f").delete(k);t.oncomplete=res;t.onerror=()=>rej(t.error)})};
+const bylawsFor=n=>(S.bylaws||{})[n]||null;
+const canSeeBylaws=l=>!l.gl&&signedIn()&&(isMember(l)||canEdit(l));
+function bylawRow(l){
+  const b=bylawsFor(l.n),ed=canEdit(l);
+  return `<div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap">
+    <span>${b?`<b>${esc(b.name)}</b><br><span class="isub">${fsize(b.size)} · added ${esc((b.at||"").slice(0,10))}${b.by?" by "+esc(b.by):""}</span>`:`<span class="hint" style="margin:0">No bylaws uploaded yet.</span>`}</span>
+    <span style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">${b?`<button class="btn small" type="button" data-act="bylaw-open" data-n="${l.n}">Open PDF</button>`:""}${ed?`<label class="btn ${b?"ghost ":""}small" style="cursor:pointer">${b?"Replace":"Upload PDF"}<input type="file" accept="application/pdf,.pdf" data-bylaw="${l.n}" style="display:none"></label>${b?`<button class="btn ghost small" type="button" data-act="bylaw-remove" data-n="${l.n}">Remove</button>`:""}`:""}</span></div>`}
+function bylawsBlock(l){
+  if(!canSeeBylaws(l))return "";
+  return `<div class="section"><h3 class="sub">Bylaws</h3>${bylawRow(l)}<p class="hint" style="margin:8px 0 0">Only members of ${esc(lname(l))} can see this. Under the Laws, bylaws need Grand Lodge approval (Art. 219), so upload the approved copy.</p></div>`}
+function bylawsView(){
+  const back=`<div class="actions" style="margin:0"><button class="btn ghost small" type="button" data-act="by-back">← Resources</button></div>`;
+  if(!signedIn())return `<div class="stack">${back}<div class="panel empty">Sign in to see your lodge's bylaws. Switch "Viewing as" to a signed-in role.</div></div>`;
+  const ls=L.filter(l=>canSeeBylaws(l)).sort((a,b)=>a.n-b.n);
+  return `<div class="stack">${back}<div><h2 class="title" style="margin:0 0 6px">Lodge bylaws</h2><p class="hint" style="margin:0">Bylaws for the lodges you belong to. Each lodge's secretary, or anyone who can edit the lodge page, uploads them. You only see lodges you are a member of.</p></div>
+  ${ls.length?ls.map(l=>`<div class="panel pad" style="display:grid;gap:8px"><button type="button" class="linkbtn" data-lodge-open="${l.n}" style="justify-self:start;font-weight:600">${esc(lname(l))}</button>${bylawRow(l)}</div>`).join(""):`<div class="panel empty">You aren't a member of a lodge on this site yet, so there are no bylaws to show.</div>`}
+  <div class="hint">Demo note: for now an uploaded PDF is stored in this browser only. Sharing it with the rest of the lodge needs the real login and storage.</div></div>`}
 const lawText=x=>esc(x).replace(/\b(Articles?|Art\.)\s+(\d{1,3}[a-z]?)\b/g,(m,w,n)=>LAWS.arts.some(a=>a.n===n)?`<button type="button" class="linkbtn" data-act="law-open" data-n="${n}">${m}</button>`:m);
 function lawsView(){
   const back=`<div class="actions" style="margin:0"><button class="btn ghost small" type="button" data-act="law-back">← ${S.lawOpen?"All articles":"Resources"}</button></div>`;
@@ -1679,7 +1701,7 @@ const RES0=[
   {sec:"Law and rules",items:[
     ["Laws of the Grand Lodge","The law book ("+(LAWS.edition||"Revised")+"), searchable by article number or word.",LAWS.arts.length?"app:laws":null,"Open laws"],
     ["Grand Master's decisions and edicts","Rulings of the Grand Master, "+(LAWS.arts.reduce((n,a)=>n+(a.d||[]).length,0))+" in all through the 2025 revision, each linked to the article it interprets. Newer ones are not in the book yet.",LAWS.arts.length?"app:decisions":null,"Open decisions"],
-    ["Lodge bylaws","Your own lodge's bylaws."]]},
+    ["Lodge bylaws","Bylaws for the lodges you belong to, uploaded by each lodge. Members only.","app:bylaws","Open bylaws"]]},
   {sec:"Forms and officer guides",min:"MM",items:[
     ["Grand Lodge forms","Petitions, affiliation, reinstatement, demits and other official forms."],
     ["Officer handbooks","What each station does, from Tiler to Worshipful Master."],
@@ -1702,7 +1724,7 @@ function resView(){
   return `<div class="stack"><div><h2 class="title" style="margin:0 0 6px">Resources</h2>
     <p class="hint" style="margin:0">Study materials and Grand Lodge resources for Texas Masons.${signedIn()?"":" Sign in to open them once they're added."}</p></div>
     ${RES.map((g,gi)=>resItems(g).length?`<div id="res-${gi}" class="${g.sec==="Texas Monitor"?"panel pad":""}" style="scroll-margin-top:12px"><h3 class="sub" style="margin-bottom:${g.note?"2px":"10px"}">${g.sec}</h3>${g.note?`<p class="hint" style="margin:0 0 12px">${g.note}</p>`:""}
-      <div class="cards">${resItems(g).map(([t,d,u,c])=>u==="app:decisions"?`<button type="button" class="card" data-act="open-laws" data-m="dec"><span class="t">${t}</span><span class="isub">${d}</span><span><span class="chip mem">${c||"Open"}</span></span></button>`:u==="app:laws"?`<button type="button" class="card" data-act="open-laws"><span class="t">${t}</span><span class="isub">${d}</span><span><span class="chip mem">${c||"Open"}</span></span></button>`:u==="app:monitor"?`<button type="button" class="card" data-act="open-monitor"><span class="t">${t}</span><span class="isub">${d}</span><span><span class="chip mem">${c||"Open"}</span></span></button>`:u==="app:drills"?`<button type="button" class="card" data-act="open-drills"><span class="t">${t}</span><span class="isub">${d}</span><span><span class="chip mem">${c||"Open"}</span></span></button>`:u?`<a class="card" href="${u}" target="_blank" rel="noopener" data-ext="${u}"><span class="t">${t}</span><span class="isub">${d}</span><span><span class="chip mem">${c||"Open PDF"}</span></span></a>`:`<button type="button" class="card" data-act="res" data-res="${esc(t)}"><span class="t">${t}</span><span class="isub">${d}</span><span><span class="chip">${g.sec==="Texas Monitor"?"Coming soon":"Suggested"}</span></span></button>`).join("")}</div></div>`:"").join("")}
+      <div class="cards">${resItems(g).map(([t,d,u,c])=>u==="app:bylaws"?`<button type="button" class="card" data-act="open-bylaws"><span class="t">${t}</span><span class="isub">${d}</span><span><span class="chip mem">${c||"Open"}</span></span></button>`:u==="app:decisions"?`<button type="button" class="card" data-act="open-laws" data-m="dec"><span class="t">${t}</span><span class="isub">${d}</span><span><span class="chip mem">${c||"Open"}</span></span></button>`:u==="app:laws"?`<button type="button" class="card" data-act="open-laws"><span class="t">${t}</span><span class="isub">${d}</span><span><span class="chip mem">${c||"Open"}</span></span></button>`:u==="app:monitor"?`<button type="button" class="card" data-act="open-monitor"><span class="t">${t}</span><span class="isub">${d}</span><span><span class="chip mem">${c||"Open"}</span></span></button>`:u==="app:drills"?`<button type="button" class="card" data-act="open-drills"><span class="t">${t}</span><span class="isub">${d}</span><span><span class="chip mem">${c||"Open"}</span></span></button>`:u?`<a class="card" href="${u}" target="_blank" rel="noopener" data-ext="${u}"><span class="t">${t}</span><span class="isub">${d}</span><span><span class="chip mem">${c||"Open PDF"}</span></span></a>`:`<button type="button" class="card" data-act="res" data-res="${esc(t)}"><span class="t">${t}</span><span class="isub">${d}</span><span><span class="chip">${g.sec==="Texas Monitor"?"Coming soon":"Suggested"}</span></span></button>`).join("")}</div></div>`:"").join("")}
   </div>`;
 }
 
@@ -1812,6 +1834,10 @@ document.addEventListener("click",e=>{
     case "vote":{const po=S.posts.find(x=>x.id===t.dataset.post);if(!po||!po.poll||!canSeePost(po))break;const i=+t.dataset.i,had=po.poll[i].v.includes(S.user);po.poll.forEach(o=>{o.v=o.v.filter(x=>x!==S.user)});if(!had)po.poll[i].v.push(S.user);render();break}
     case "pic":{const po=S.posts.find(x=>x.id===t.dataset.post);const u=po&&po.pics&&po.pics[+t.dataset.i];if(!u)break;const d=document.createElement("div");d.className="lbx";d.innerHTML=`<img src="${u}" alt="Photo">`;d.onclick=()=>d.remove();document.body.appendChild(d);break}
     case "open-drills":S.prevTab=S.tab;S.tab="drills";S.drillSlug=null;render();scrollTo(0,0);playDrillIntro();break
+    case "open-bylaws":S.tab="bylaws";render();scrollTo(0,0);break
+    case "by-back":S.tab="res";render();scrollTo(0,0);break
+    case "bylaw-open":{const n=+t.dataset.n,l=byNum(n);if(!l||!canSeeBylaws(l))break;fget("bylaws:"+n).then(bl=>{if(!bl){toast("The file isn't in this browser. Ask the secretary to upload it again.");return}const u=URL.createObjectURL(bl),a=document.createElement("a");a.href=u;a.target="_blank";a.rel="noopener";document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),120000)}).catch(()=>toast("Couldn't open the file"));break}
+    case "bylaw-remove":{const n=+t.dataset.n,l=byNum(n);if(!l||!canEdit(l))break;fdel("bylaws:"+n).catch(()=>{});if(S.bylaws)delete S.bylaws[n];logIt(`removed the bylaws of ${lname(l)}`);toast("Bylaws removed");render();break}
     case "open-laws":S.tab="laws";S.lawOpen=null;S.lawMode=t.dataset.m||"art";render();scrollTo(0,0);break
     case "law-mode":S.lawMode=t.dataset.m;S.lawOpen=null;render();break
     case "law-open":S.tab="laws";S.lawOpen=t.dataset.n;render();scrollTo(0,0);break
@@ -1976,6 +2002,10 @@ document.addEventListener("submit",e=>{
 document.addEventListener("change",e=>{
   const t=e.target;
   if(t.id==="viewas"){S.user=t.value;{const pr=S.profiles[(USERS.find(u=>u.id===t.value)||{}).profile];if(pr)pr.lastLogin=new Date().toISOString()}UI={editing:false,editProfile:false,adding:null,confirmDel:null};const u=me();const ml=myLodges().filter(n=>n!==0);if(ml.length)S.sel=ml[0];if(u.profile)S.prof=u.profile;render();toast(`Now viewing as ${u.label}`);return}
+  if(t.dataset&&t.dataset.bylaw){const n=+t.dataset.bylaw,l=byNum(n),f=t.files&&t.files[0];t.value="";if(!l||!canEdit(l)||!f)return;
+    if(!/pdf$/i.test(f.name)&&f.type!=="application/pdf"){toast("Please choose a PDF");return}
+    if(f.size>15*1024*1024){toast("That file is over 15 MB");return}
+    fput("bylaws:"+n,f).then(()=>{(S.bylaws=S.bylaws||{})[n]={name:f.name,size:f.size,at:new Date().toISOString(),by:(myProfile()||{}).name||""};logIt(`uploaded the bylaws of ${lname(l)}`);toast("Bylaws saved");render()}).catch(()=>toast("This browser wouldn't store the file"));return}
   if(t.id==="dist"){S.dist=t.value;render();return}
   if(t.id==="drill-pick"){S.drillSlug=t.value;render();scrollTo(0,0);return}
   if(t.classList&&t.classList.contains("app-status")){const a=ensureApps().find(x=>x.id===t.dataset.id),l=a&&byNum(a.lodge);if(a&&l&&canEdit(l)){a.status=t.value;toast(`${a.name}: ${t.value}`)}render();return}
