@@ -964,7 +964,24 @@ let TL_LAST="";
 function tlHero(){const h=document.getElementById("hero-logo");if(h&&!h._done){h._done=1;tlBurn(h,2000)}}
 function tlHeader(){tlHero();const h=document.getElementById("hdr-logo");if(!h)return;const key=(S.tab||"")+"|"+(S.user||"");if(key!==TL_LAST){TL_LAST=key;tlBurn(h,1400)}}
 document.addEventListener("click",e=>{if(e.target.closest&&e.target.closest("#hdr-logo"))tlBurn(document.getElementById("hdr-logo"),1400)});
+/* Test people, sample events, sample chats: only visible when viewing as a test role (or Super Admin). Real viewers (Mark, the public) never see them. */
+function syncTestData(){
+  const test=!!S.user&&S.user!=="mark"&&S.user!=="public";
+  const T=S._ts||(S._ts={p:{},e:[],c:[],m:[]});
+  ensureConvos();ensureMentor();
+  if(test){
+    Object.entries(T.p).forEach(([id,p])=>{if(!S.profiles[id])S.profiles[id]=p});T.p={};
+    T.e.forEach(e=>{if(!S.events.some(x=>x.id===e.id))S.events.push(e)});T.e=[];
+    T.c.forEach(c=>{if(!S.convos.some(x=>x.id===c.id))S.convos.push(c)});T.c=[];
+    T.m.forEach(m=>{if(!S.mentor.some(x=>x.id===m.id))S.mentor.push(m)});T.m=[];
+  }else{
+    Object.entries(S.profiles).forEach(([id,p])=>{if(p.sample){T.p[id]=p;delete S.profiles[id]}});
+    const mv=(arr,dst)=>{for(let i=arr.length-1;i>=0;i--)if(arr[i].sample){dst.push(arr[i]);arr.splice(i,1)}};
+    mv(S.events,T.e);mv(S.convos,T.c);mv(S.mentor,T.m);
+  }
+}
 function render(){
+  syncTestData();
   settleFirstClaims();applyBodyInfo();L=lodges(); renderSwitcher(); renderAcct();
   const v=document.getElementById("view");
   document.body.classList.toggle("out",!signedIn());
