@@ -1215,6 +1215,33 @@ function dupHits(name,email,exLodge,exApp,exPid){
     pp.lodges.filter(x=>x.n&&!x.pending&&x.n!==exLodge&&!(byNum(x.n)||{}).gl).forEach(x=>out.push({lodge:x.n,what:DTITLE[degP(pp)]||"Member",date:"",status:""}))});
   return out}
 const dupText=h=>{const lo=byNum(h.lodge);return `${lo?lname(lo):"Lodge "+h.lodge}: ${h.what}${h.date?", received "+h.date:""}${h.status?", "+h.status:""}`};
+function memberMatches(q,excludeIds){
+  q=String(q||"").trim();if(!q)return [];
+  const isE=q.includes("@"),qe=q.toLowerCase(),nn=normName(q),toks=nn.split(" ").filter(w=>w.length>1);
+  return Object.entries(S.profiles).filter(([id,p])=>{
+    if(excludeIds&&excludeIds.includes(id))return false;
+    if(isE)return valOf(p,"email").toLowerCase().includes(qe);
+    const pn=normName(p.name);if(!nn)return false;
+    return pn===nn||pn.includes(nn)||(toks.length>0&&toks.every(w=>pn.split(" ").some(x=>x.startsWith(w))));
+  }).slice(0,8)}
+const personLine=p=>{const ls=(p.lodges||[]).filter(x=>x.n&&!x.pending).map(x=>byNum(x.n)).filter(Boolean).map(lname).join(", ");return `${DTITLE[degP(p)]||"Member"}${ls?" · "+ls:""}`};
+function addMemberBlock(l){
+  const ms=UI.memS&&UI.memS.lodge===l.n?UI.memS:null;
+  const res=ms?memberMatches(ms.q):[];
+  const isEm=ms&&ms.q.includes("@");
+  const showForm=ms&&(UI.memNew===l.n||!res.length||UI.addWarn);
+  const rows=res.map(([id,p])=>{const here=p.lodges.some(x=>x.n===l.n&&!x.pending);
+    return `<div class="panel pad" style="display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap"><span style="min-width:0"><b>${esc(p.name)}</b>${p.sample?` <span class="chip pilot">Test profile</span>`:""}<br><span class="isub">${esc(personLine(p))}</span></span>${here?`<span class="hint" style="margin:0">Already on this roster</span>`:`<button class="btn small" type="button" data-act="mem-link" data-pid="${id}">Yes, this is him. Add to ${esc(lname(l))}</button>`}</div>`}).join("");
+  return `<div class="section"><h3 class="sub">Add a member or applicant</h3><p class="hint" style="margin:0 0 10px">Search first so nobody is entered twice. Type his name or email. If he is already on the Trestle Board, you link him to this lodge. If not, you add him as new and he gets an invitation to sign in. An Entered Apprentice or Fellowcraft belongs to this one lodge only.</p>
+  <form class="panel pad" id="memsearchform" data-lodgeno="${l.n}" style="display:flex;gap:8px;max-width:480px;flex-wrap:wrap"><input type="text" id="ms-q" value="${esc(ms?ms.q:"")}" placeholder="Name or email" aria-label="Search for a brother" style="flex:1;min-width:180px"><button class="btn small" type="submit">Search</button>${ms?`<button class="btn ghost small" type="button" data-act="mem-reset">Clear</button>`:""}</form>
+  ${ms?`<div class="stack" style="padding:0;gap:8px;max-width:480px;margin-top:10px">${res.length?`<p class="hint" style="margin:0">${res.length} found. Is one of these him?</p>${rows}`:`<p class="hint" style="margin:0">Nobody on the Trestle Board matches "${esc(ms.q)}". Add him as new below.</p>`}${res.length&&UI.memNew!==l.n?`<button class="btn ghost small" type="button" data-act="mem-new" style="justify-self:start">None of these. Add a new brother</button>`:""}</div>`:""}
+  ${showForm?`${UI.addWarn?`<div class="mon-ed" style="border-left-color:#b3261e;max-width:480px;margin:10px 0"><b>Possible duplicate: ${esc(UI.addWarn.nm)}</b>${UI.addWarn.hits.map(h=>`<div>${esc(dupText(h))}</div>`).join("")}<div class="actions" style="margin:8px 0 0;gap:6px"><button class="btn small" type="button" data-act="add-anyway">Record anyway</button><button class="btn small ghost" type="button" data-act="add-cancel">Cancel</button></div></div>`:""}<form class="panel pad" id="addmemberform" data-lodgeno="${l.n}" style="display:grid;gap:8px;max-width:480px;margin-top:10px">
+    <label>Full name<input type="text" id="am-name" required value="${isEm?"":esc(ms.q)}"></label>
+    <label>Email<input type="email" id="am-email" required placeholder="brother@example.com" value="${isEm?esc(ms.q):""}"></label>
+    <label>Degree<select id="am-degree">${Object.keys(DTITLE).map(k=>`<option value="${k}" ${k==="MM"?"selected":""}>${DTITLE[k]}</option>`).join("")}</select></label>
+    <label>Date petition received <span class="hint">(applicants only)</span><input type="date" id="am-date" value="${TODAY}"></label>
+    <button class="btn small" type="submit" style="justify-self:start">Add and send invitation</button>
+    <span class="hint">Invitation emails go out once the site is live. For now he is added to the roster as "Invited". His email is his unique ID, so one email can never create two accounts.</span></form>`:""}</div>`}
 function createMember(l,nm,em,dg,date){
   const id="p"+Date.now().toString(36);audit(l.gl?"gl":"l:"+l.n,dg==="AP"?`received a petition from ${nm}`:`added ${nm} to the Trestle Board roster`);
   S.profiles[id]={name:nm,degree:dg,invited:true,invitedBy:meP()||S.user,invitedAt:new Date().toISOString(),lodges:[{n:l.n,since:String(new Date().getFullYear())}],current:[],past:[],certs:[],bodies:[],contact:{email:C(em,"lodge"),phone:C("","private"),city:C("","members")}};
@@ -1232,18 +1259,12 @@ function officerManager(l){
   const ros=lodgeRoster(l).sort((a,b)=>a[1].name.localeCompare(b[1].name));
   const holder=o=>{const h=ros.find(([,p])=>holds(p,"l:"+l.n).includes(o));return h?h[0]:""};
   return `<div class="section"><h3 class="sub">Officers</h3><p class="hint" style="margin:0 0 10px">For each office, pick a member of this lodge, or choose "Type a name" if he is not on the site yet. A picked member gets the title on his profile. A typed name is just text. When he joins, come back here and switch the office to him.</p>
+  ${UI.offAsk&&UI.offAsk.lodge===l.n?`<div class="mon-ed" style="border-left-color:#b3261e;max-width:520px;margin-bottom:10px"><b>Is this him? "${esc(UI.offAsk.typed)}" for ${esc(UI.offAsk.o)}</b><div class="hint" style="margin:4px 0 8px">Someone with that name is already on the Trestle Board. Linking him gives him the title on his profile.</div>${UI.offAsk.ids.map(id=>S.profiles[id]?`<div style="display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:6px"><span><b>${esc(S.profiles[id].name)}</b><br><span class="isub">${esc(personLine(S.profiles[id]))}</span></span><button class="btn small" type="button" data-act="off-yes" data-pid="${id}">Yes, this is him</button></div>`:"").join("")}<button class="btn ghost small" type="button" data-act="off-no">No, keep the typed name</button></div>`:""}
   <div class="stack" style="padding:0;gap:8px">${OFFICES.map((o,i)=>{const h=holder(o),mv=h?"":manualOf(l,o);return `<div class="inline-form" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><b style="min-width:150px">${o}</b>
     <select id="off-${i}" class="off-sel" data-i="${i}" aria-label="${o}"><option value="">Vacant</option>${ros.map(([id,p])=>`<option value="${id}" ${id===h?"selected":""}>${esc(p.name)} (${degP(p)})</option>`).join("")}<option value="__manual" ${mv?"selected":""}>Type a name (not a member yet)</option></select>
     <input type="text" id="offt-${i}" value="${esc(mv)}" placeholder="Full name" aria-label="${o} name" style="${mv?"":"display:none"}">
     <button class="btn small" type="button" data-act="off-set" data-i="${i}">Save</button></div>`}).join("")}</div></div>
-  <div class="section"><h3 class="sub">Add a member or applicant</h3><p class="hint" style="margin:0 0 10px">The lodge makes the Mason, so you enter his name, email and where he stands (applicant, Entered Apprentice, Fellowcraft or Master Mason) and he gets an invitation to sign in. An Entered Apprentice or Fellowcraft belongs to this one lodge only.</p>
-  ${UI.addWarn?`<div class="mon-ed" style="border-left-color:#b3261e;max-width:480px;margin-bottom:10px"><b>Possible duplicate: ${esc(UI.addWarn.nm)}</b>${UI.addWarn.hits.map(h=>`<div>${esc(dupText(h))}</div>`).join("")}<div class="actions" style="margin:8px 0 0;gap:6px"><button class="btn small" type="button" data-act="add-anyway">Record anyway</button><button class="btn small ghost" type="button" data-act="add-cancel">Cancel</button></div></div>`:""}<form class="panel pad" id="addmemberform" data-lodgeno="${l.n}" style="display:grid;gap:8px;max-width:480px">
-    <label>Full name<input type="text" id="am-name" required></label>
-    <label>Email<input type="email" id="am-email" required placeholder="brother@example.com"></label>
-    <label>Degree<select id="am-degree">${Object.keys(DTITLE).map(k=>`<option value="${k}" ${k==="MM"?"selected":""}>${DTITLE[k]}</option>`).join("")}</select></label>
-    <label>Date petition received <span class="hint">(applicants only)</span><input type="date" id="am-date" value="${TODAY}"></label>
-    <button class="btn small" type="submit" style="justify-self:start">Add and send invitation</button>
-    <span class="hint">Invitation emails go out once the site is live. For now he is added to the roster as "Invited".</span></form></div>
+  ${addMemberBlock(l)}
   ${applicationsBlock(l)}
   <div class="section"><h3 class="sub">Members on the Trestle Board</h3><p class="hint" style="margin:0 0 10px">Everyone from this lodge who has joined the Trestle Board. This is not the lodge's full membership. Open a member to edit his profile if you have permission.</p>
   ${ros.length?`<div class="cards">${ros.map(([id,p])=>`<button type="button" class="card" data-person="${id}"><span style="display:flex;gap:10px;align-items:center"><span class="avatar">${initials(p.name)}</span><span class="t">${esc(p.name)}</span></span><span class="isub">${esc(officeIn(p,l)||"Member")}</span><span><span class="chip acc">${esc(DTITLE[degP(p)])}</span> ${p.invited?`<span class="chip">Invited, not signed in</span>`:`<span class="chip">Active</span>`} <span class="chip">Status changes: planned</span></span></button>${p.invited?`<span class="actions" style="margin:4px 0 12px;gap:6px"><button class="btn small ghost" type="button" data-act="invite-resend" data-id="${id}">Resend invitation</button><button class="btn small ghost" type="button" data-act="invite-cancel" data-id="${id}">Cancel invitation</button></span>`:""}`).join("")}</div>`:`<p class="hint">No members have joined on the Hub yet.</p>`}</div>`}
@@ -2245,6 +2266,9 @@ document.addEventListener("click",e=>{
     case "off-set":{const l=byNum(S.sel);if(!l||!canEdit(l))break;const o=OFFICES[+t.dataset.i],pid=(document.getElementById("off-"+t.dataset.i)||{}).value||"";
       const typed=pid==="__manual"?((document.getElementById("offt-"+t.dataset.i)||{}).value||"").trim().replace(/\s+/g," "):"";
       if(pid==="__manual"&&!typed){toast("Type a name first, or choose Vacant");break}
+      if(pid==="__manual"&&UI.offSkip!==o+"|"+typed){const hits=memberMatches(typed).filter(([id,p])=>normName(p.name)===normName(typed)||normName(p.name).includes(normName(typed))||normName(typed).includes(normName(p.name))).slice(0,4);
+        if(hits.length){UI.offAsk={lodge:l.n,i:+t.dataset.i,o,typed,ids:hits.map(h=>h[0])};render();break}}
+      UI.offAsk=null;UI.offSkip=null;
       if(!S.manual)S.manual={};if(!S.manual[l.n])S.manual[l.n]={};
       {const was=manualOf(l,o),holder=Object.entries(S.profiles).find(([,q])=>holds(q,"l:"+l.n).includes(o)),wasN=holder?holder[1].name:was;
        audit("l:"+l.n,`set ${o} to ${pid&&pid!=="__manual"&&S.profiles[pid]?S.profiles[pid].name:typed?typed+" (typed name, not linked)":"vacant"}${wasN?` (was ${wasN})`:""}`)}
@@ -2252,8 +2276,23 @@ document.addEventListener("click",e=>{
       Object.values(S.profiles).forEach(p=>{p.current=(p.current||[]).filter(c=>!(String(c.title||"").trim()===o&&((c.ref&&refKey(c.ref)==="l:"+l.n)||lodgeRe(l).test(String(c.body||"")))))});
       if(pid&&pid!=="__manual"&&S.profiles[pid]){S.profiles[pid].current.unshift({title:o,body:`${l.name} Lodge No. ${l.n}`,ref:{t:"l",id:l.n},year:String(new Date().getFullYear())})}
       toast(pid?`${o} saved`:`${o} is now vacant`);render();break}
-    case "add-anyway":{const w=UI.addWarn,l=w&&byNum(w.lodge);if(w&&l&&canEdit(l)){createMember(l,w.nm,w.em,w.dg,w.dt);UI.addWarn=null;toast(`${w.nm} added. Invitation emails go out once the site is live.`);render()}break}
+    case "add-anyway":{const w=UI.addWarn,l=w&&byNum(w.lodge);if(w&&l&&canEdit(l)){createMember(l,w.nm,w.em,w.dg,w.dt);UI.addWarn=null;UI.memS=null;UI.memNew=null;toast(`${w.nm} added. Invitation emails go out once the site is live.`);render()}break}
     case "add-cancel":UI.addWarn=null;render();break;
+    case "off-yes":case "off-no":{const A=UI.offAsk,l=byNum(S.sel);if(!A||!l||!canEdit(l))break;
+      if(t.dataset.act==="off-yes"){const p=S.profiles[t.dataset.pid];if(!p)break;
+        if(!p.lodges.some(x=>x.n===l.n&&!x.pending)){if(["EA","FC","AP"].includes(degP(p))&&p.lodges.some(x=>x.n&&!x.pending)){toast("He belongs to another lodge only, so he can't be linked here");break}
+          p.lodges.push({n:l.n,since:String(new Date().getFullYear()),approvedBy:"added by lodge"});audit(l.gl?"gl":"l:"+l.n,`linked ${p.name} (already on the site) to the roster`)}
+        UI.offAsk=null;render();const sel=document.getElementById("off-"+A.i);if(sel){sel.value=t.dataset.pid;const b=document.querySelector(`[data-act="off-set"][data-i="${A.i}"]`);if(b)b.click()}}
+      else{UI.offSkip=A.o+"|"+A.typed;UI.offAsk=null;render();const sel=document.getElementById("off-"+A.i),tx=document.getElementById("offt-"+A.i);if(sel&&tx){sel.value="__manual";tx.style.display="";tx.value=A.typed;const b=document.querySelector(`[data-act="off-set"][data-i="${A.i}"]`);if(b)b.click()}}
+      break}
+    case "mem-reset":UI.memS=null;UI.memNew=null;UI.addWarn=null;render();break;
+    case "mem-new":{const l=byNum(S.sel);if(l&&canEdit(l)){UI.memNew=l.n;render()}break}
+    case "mem-link":{const l=byNum(S.sel),p=S.profiles[t.dataset.pid];if(!l||!p||!canEdit(l))break;
+      if(p.lodges.some(x=>x.n===l.n&&!x.pending)){toast("Already on this roster");break}
+      const others=p.lodges.filter(x=>x.n&&!x.pending&&x.n!==l.n);
+      if(["EA","FC","AP"].includes(degP(p))&&others.length){toast("An Entered Apprentice, Fellowcraft or applicant belongs to one lodge only");break}
+      p.lodges=p.lodges.filter(x=>x.n!==l.n);p.lodges.push({n:l.n,since:String(new Date().getFullYear()),approvedBy:"added by lodge"});
+      audit(l.gl?"gl":"l:"+l.n,`linked ${p.name} (already on the site) to the roster`);UI.memS=null;UI.memNew=null;toast(`${p.name} added to ${lname(l)}. No duplicate was created.`);render();break}
     case "app-ea":{const a=ensureApps().find(x=>x.id===t.dataset.id),l=a&&byNum(a.lodge);if(a&&l&&canEdit(l)){audit("l:"+l.n,`made ${a.name} an Entered Apprentice`);a.status="Initiated";if(S.profiles[a.pid])S.profiles[a.pid].degree="EA";toast(`${a.name} is now an Entered Apprentice`);render()}break}
     case "invite-resend":{const pp=S.profiles[t.dataset.id];if(pp&&pp.invited)toast("Invitation emails go out once the site is live");break}
     case "invite-cancel":{const pp=S.profiles[t.dataset.id],l=byNum(S.sel);if(pp&&pp.invited&&l&&canEdit(l)){delete S.profiles[t.dataset.id];S.apps=ensureApps().filter(x=>x.pid!==t.dataset.id);toast("Invitation canceled");render()}break}
@@ -2323,6 +2362,7 @@ document.addEventListener("submit",e=>{
   if(f.dataset&&f.dataset.mentorform){const id=f.elements.pick.value;if(!id){toast("Choose a member first");return}const me_=meP(),isMentee=f.dataset.mentorform==="mentee",a=isMentee?me_:id,c=isMentee?id:me_;
     if(!S.profiles[a]||!canMentor(S.profiles[a])){toast("Only Master Masons can be mentors");return}
     const ms=ensureMentor();if(!ms.some(x=>x.mentor===a&&x.mentee===c))ms.push({id:"mt"+Date.now().toString(36),mentor:a,mentee:c,by:me_});toast("Added");render();return}
+  if(f.id==="memsearchform"){const q=(document.getElementById("ms-q").value||"").trim();if(!q){toast("Type a name or an email");return}UI.memS={lodge:+f.dataset.lodgeno,q};UI.memNew=null;UI.addWarn=null;render();return}
   if(f.id==="addmemberform"){const l=byNum(+f.dataset.lodgeno);if(!l||!canEdit(l)){toast("You can't add members to this lodge");return}
     const nm=(document.getElementById("am-name").value||"").trim(),em=(document.getElementById("am-email").value||"").trim().toLowerCase(),dg=document.getElementById("am-degree").value,dt=(document.getElementById("am-date")||{}).value||TODAY;
     if(!nm||!em){toast("Enter a name and an email");return}
@@ -2330,7 +2370,7 @@ document.addEventListener("submit",e=>{
     if(dup){const dl=dup[1].lodges.filter(x=>x.n&&!x.pending).map(x=>byNum(x.n)).filter(Boolean).map(lname).join(", ");toast(`${dup[1].name} is already on the Hub${dl?" ("+dl+")":""}. No duplicate was created.`);return}
     const hits=dupHits(nm,em,l.n,null,null);
     if(hits.length){UI.addWarn={nm,em,dg,dt,lodge:l.n,hits};render();return}
-    UI.addWarn=null;createMember(l,nm,em,dg,dt);toast(`${nm} added. Invitation emails go out once the site is live.`);render();return}
+    UI.addWarn=null;UI.memS=null;UI.memNew=null;createMember(l,nm,em,dg,dt);toast(`${nm} added. Invitation emails go out once the site is live.`);render();return}
   if(f.dataset.editpost){const ep=S.posts.find(x=>x.id===f.dataset.editpost);if(!ep||ep.by!==S.user)return;const tx=(new FormData(f).get("t")||"").trim();
     if(!tx&&!(ep.pics&&ep.pics.length)&&!(ep.files&&ep.files.length)&&!ep.poll){toast("A post can't be empty. Delete it instead.");return}
     if(tx!==ep.text){ep.text=tx;ep.edited=new Date().toISOString()}UI.editPost=null;toast("Post updated");render();return}
