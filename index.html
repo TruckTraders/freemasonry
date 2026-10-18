@@ -760,7 +760,8 @@ function pendingPeople(key){const m={};
   return Object.values(m)}
 const myPendingAff=l=>{const mp=meP();return !!mp&&pendingPeople("l:"+l.n).some(x=>x.id===mp)};
 const isMember=l=>signedIn()&&myLodges().includes(l.n);
-const canSeePrivate=l=>(isMember(l)&&can("membersArea"))||can("editAnyLodge");
+// Members of the lodge see its private area. So do the district officers over it (DDGM, DI and other district appointees) and Grand Lodge officers: anyone who can edit the lodge.
+const canSeePrivate=l=>(isMember(l)&&can("membersArea"))||can("editAnyLodge")||(!l.gl&&signedIn()&&can("membersArea")&&canEdit(l));
 const following=l=>isMember(l)||(S.follows[S.user]||[]).includes(l.n);
 const lname=l=>l.gl?l.name:`${l.name} No. ${l.n}`;
 const initials=n=>n.replace(/^TEST\s+/,"").split(/\s+/).map(w=>w[0]).slice(0,2).join("").toUpperCase();
@@ -1172,11 +1173,11 @@ function lodgeDetail(){
     <dt>District</dt><dd>${esc(l.d)}</dd>
   </dl>
   <div class="section"><h3 class="sub">Calendar</h3>${lodgeCal(l)}</div>
-  ${bylawsBlock(l)}${l.gl?"":`<div class="section"><h3 class="sub">Officers</h3>${canSeePrivate(l)?officerList(l):`<p class="locked">🔒 Only members of ${esc(lname(l))} can see the officers.</p>`}</div>`}
+  ${bylawsBlock(l)}${l.gl?"":`<div class="section"><h3 class="sub">Officers</h3>${canSeePrivate(l)?officerList(l):`<p class="locked">🔒 Only members of ${esc(lname(l))} and the district officers over it can see the officers.</p>`}</div>`}
   ${l.gl?"":pendSection("l:"+l.n,lname(l))}${l.gl?"":posManager("l:"+l.n)}
   <div class="section"><h3 class="sub">${l.gl?"Grand Lodge officers":"Members"}</h3>${l.gl||canSeePrivate(l)
     ?(roster.length?`<div class="cards">${roster.map(([id,p])=>personCard(id,p,l.n)).join("")}</div>`:`<p class="hint">No ${l.gl?"officers":"members"} have joined on the Hub yet.${l.gl?"":" Be the first from this lodge. <b>One Texas. One Trestle Board.</b>"}</p>`)
-    :`<p class="locked">🔒 Only members of ${esc(lname(l))} can see the roster.</p>`}</div>
+    :`<p class="locked">🔒 Only members of ${esc(lname(l))} and the district officers over it can see the roster.</p>`}</div>
   <div class="section"><h3 class="sub">Trestle Board</h3>${(()=>{const ps=S.posts.filter(p=>postReachesLodge(p,l)&&canSeePost(p)).sort((a,b)=>b.at.localeCompare(a.at)).slice(0,3);
     return !signedIn()?`<p class="locked">🔒 Sign in to see this lodge's Trestle Board.</p>`:ps.length?`<div class="stack" style="padding:0;gap:10px">${ps.map(postCard).join("")}</div><button class="linkbtn" type="button" data-act="lodge-board" data-n="${l.n}">Open ${esc(lname(l))}'s Trestle Board</button>`:`<p class="hint">Nothing posted here yet. Lodge, District ${esc(l.d)} and Grand Lodge posts will show up here.</p>`})()}</div>`;
 }
