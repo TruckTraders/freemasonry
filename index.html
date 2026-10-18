@@ -1128,7 +1128,7 @@ function officerManager(l){
     <button class="btn small" type="submit" style="justify-self:start">Add and send invitation</button>
     <span class="hint">Invitation emails go out once the site is live. For now he is added to the roster as "Invited".</span></form></div>
   ${applicationsBlock(l)}
-  <div class="section"><h3 class="sub">Members</h3><p class="hint" style="margin:0 0 10px">Everyone on this lodge's roster. Open a member to edit his profile if you have permission.</p>
+  <div class="section"><h3 class="sub">Members on the Trestle Board</h3><p class="hint" style="margin:0 0 10px">Everyone from this lodge who has joined the Trestle Board. This is not the lodge's full membership. Open a member to edit his profile if you have permission.</p>
   ${ros.length?`<div class="cards">${ros.map(([id,p])=>`<button type="button" class="card" data-person="${id}"><span style="display:flex;gap:10px;align-items:center"><span class="avatar">${initials(p.name)}</span><span class="t">${esc(p.name)}</span></span><span class="isub">${esc(officeIn(p,l)||"Member")}</span><span><span class="chip acc">${esc(DTITLE[degP(p)])}</span> ${p.invited?`<span class="chip">Invited, not signed in</span>`:`<span class="chip">Active</span>`} <span class="chip">Status changes: planned</span></span></button>${p.invited?`<span class="actions" style="margin:4px 0 12px;gap:6px"><button class="btn small ghost" type="button" data-act="invite-resend" data-id="${id}">Resend invitation</button><button class="btn small ghost" type="button" data-act="invite-cancel" data-id="${id}">Cancel invitation</button></span>`:""}`).join("")}</div>`:`<p class="hint">No members have joined on the Hub yet.</p>`}</div>`}
 function pendSection(key,name){
   const mine=meP();
@@ -1175,8 +1175,8 @@ function lodgeDetail(){
   <div class="section"><h3 class="sub">Calendar</h3>${lodgeCal(l)}</div>
   ${bylawsBlock(l)}${l.gl?"":`<div class="section"><h3 class="sub">Officers</h3>${canSeePrivate(l)?officerList(l):`<p class="locked">🔒 Only members of ${esc(lname(l))} and the district officers over it can see the officers.</p>`}</div>`}
   ${l.gl?"":pendSection("l:"+l.n,lname(l))}${l.gl?"":posManager("l:"+l.n)}
-  <div class="section"><h3 class="sub">${l.gl?"Grand Lodge officers":"Members"}</h3>${l.gl||canSeePrivate(l)
-    ?(roster.length?`<div class="cards">${roster.map(([id,p])=>personCard(id,p,l.n)).join("")}</div>`:`<p class="hint">No ${l.gl?"officers":"members"} have joined on the Hub yet.${l.gl?"":" Be the first from this lodge. <b>One Texas. One Trestle Board.</b>"}</p>`)
+  <div class="section"><h3 class="sub">${l.gl?"Grand Lodge officers":"Members on the Trestle Board"}</h3>${l.gl?"":`<p class="hint" style="margin:0 0 10px">These are only the members who have joined the Trestle Board. They are not the lodge's full membership.</p>`}${l.gl||canSeePrivate(l)
+    ?(roster.length?`<div class="cards">${roster.map(([id,p])=>personCard(id,p,l.n)).join("")}</div>`:`<p class="hint">No ${l.gl?"officers":"members of this lodge"} have joined the Trestle Board yet.${l.gl?"":" Be the first from this lodge. <b>One Texas. One Trestle Board.</b>"}</p>`)
     :`<p class="locked">🔒 Only members of ${esc(lname(l))} and the district officers over it can see the roster.</p>`}</div>
   <div class="section"><h3 class="sub">Trestle Board</h3>${(()=>{const ps=S.posts.filter(p=>postReachesLodge(p,l)&&canSeePost(p)).sort((a,b)=>b.at.localeCompare(a.at)).slice(0,3);
     return !signedIn()?`<p class="locked">🔒 Sign in to see this lodge's Trestle Board.</p>`:ps.length?`<div class="stack" style="padding:0;gap:10px">${ps.map(postCard).join("")}</div><button class="linkbtn" type="button" data-act="lodge-board" data-n="${l.n}">Open ${esc(lname(l))}'s Trestle Board</button>`:`<p class="hint">Nothing posted here yet. Lodge, District ${esc(l.d)} and Grand Lodge posts will show up here.</p>`})()}</div>`;
