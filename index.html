@@ -195,6 +195,7 @@ nav.tabs button[aria-selected=true]{color:var(--fg);border-bottom-color:var(--ac
 .eyebrow{font-size:12px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted)}
 h2.title{font-family:var(--f-display);font-weight:600;font-size:30px;line-height:1.15;margin:4px 0 10px;text-wrap:balance}
 h3.sub{font-family:var(--f-display);font-weight:600;font-size:18px;margin:0 0 10px}
+.crumbs{display:flex;flex-wrap:wrap;align-items:center;gap:2px 6px;margin:0 0 12px;font-size:14px}.crumbs .sep{opacity:.5}.crumbs .cur{font-weight:600}.crumbs .linkbtn{padding:4px 2px}
 .actions{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 18px;align-items:center}
 dl.facts{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:8px 18px;margin:0}
 dl.facts dt{color:var(--muted);font-size:13px}
@@ -946,7 +947,7 @@ const SRX=[SRORIENT];
 BODIES.filter(b=>b.lvl==="valley").forEach(v=>SRDEF.forEach(([c,n,d,a])=>SRX.push({id:v.id+"-"+c,t:"Scottish Rite",lvl:"body",valley:v.id,name:v.city+" "+n,bn:n,degs:d,abbr:a,city:v.city})));
 const entById=id=>BODIES.find(b=>b.id===id)||SRX.find(b=>b.id===id);
 const bodyById=entById;
-const entParent=e=>e.lvl==="body"?e.valley:e.lvl==="valley"?"sr-texas":null;
+const entParent=e=>e.parent||(e.lvl==="body"?e.valley:e.lvl==="valley"?"sr-texas":null);
 const entChain=e=>{const o=[];let x=e;while(x){o.push(x.id);const pid=entParent(x);x=pid?entById(pid):null}return o};
 const boardEntId=b=>b.t==="orient"?"sr-texas":(b.t==="valley"||b.t==="abody"||b.t==="ent")?b.id:null;
 const postReachesEnt=(p,e)=>{const id=boardEntId(p.board);return !!id&&entChain(e).includes(id)};
@@ -1014,17 +1015,37 @@ function bodiesLanding(fl){
   return `${fl}<h3 class="sub" style="margin:0 0 4px">Appendant Bodies</h3><p class="hint" style="margin:0 0 14px">Pick a body to see its Texas locations.</p>
   <div class="cards">${["Shrine","Scottish Rite","York Rite"].map(t=>`<button type="button" class="card" data-act="body-type" data-v="${t}"><span class="t">${BLAND[t][0]}</span><span class="isub">${BLAND[t][1]}</span><span><span class="chip mem">${cnt(t)} ${unit[t]}</span></span></button>`).join("")}</div>
   <p style="margin:16px 0 0"><button class="linkbtn" type="button" data-act="body-type" data-v="">View all ${BODIES.length} bodies</button></p>`}
+function crumbs(items){
+  return `<nav class="crumbs" aria-label="Where you are">${items.map((c,i)=>i===items.length-1?`<span class="cur" aria-current="page">${esc(c.l)}</span>`:`<button type="button" class="linkbtn" data-act="${c.a}"${c.d?` data-${c.d[0]}="${esc(c.d[1])}"`:""}>${esc(c.l)}</button><span class="sep" aria-hidden="true">›</span>`).join("")}</nav>`}
+function bodyCrumbs(){
+  const root={l:"Appendant Bodies",a:"body-home"};
+  if(S.bodyOpen&&S.bodySel){
+    if(String(S.bodySel).startsWith("city:"))return crumbs([root,{l:"York Rite",a:"body-type",d:["v","York Rite"]},{l:S.bodySel.slice(5)}]);
+    const b=entById(S.bodySel);
+    if(b){const out=[root,{l:b.t,a:"body-type",d:["v",b.t]}];
+      entChain(b).slice(1).reverse().forEach(id=>{const e=entById(id);if(e)out.push({l:e.lvl==="orient"?"Texas Scottish Rite":bodyTitle(e),a:"body-sel",d:["bid",id]})});
+      if(b.t==="York Rite"&&typeof cityOf==="function"){const c=cityOf(b);if(c&&c!==NOCITY&&CITYS.some(x=>x.c===c))out.push({l:c,a:"city-open",d:["city",c]})}
+      out.push({l:bodyTitle(b)});return crumbs(out)}}
+  return crumbs([root,{l:S.bodyT?S.bodyT:"All bodies"}])}
+function lodgeCrumbs(level){
+  const out=[];if(signedIn())out.push({l:"My Lodges",a:"dir-mine"});
+  const l=byNum(S.sel);
+  if(level==="find")out.push({l:"Find a lodge"});
+  else{out.push({l:"Find a lodge",a:"dir-find"});
+    if(level==="dist")out.push({l:dLabel(S.distPage)});
+    else if(l){if(!l.gl&&L.some(x=>x.d===l.d&&!x.gl)&&l.d!=="Statewide")out.push({l:dLabel(l.d),a:"dist-open",d:["d",l.d]});out.push({l:l.gl?l.name:lname(l)})}}
+  return crumbs(out)}
 function bodiesView(){
   const fl0=((S.bodyFollows||{})[S.user]||[]).map(bodyById).filter(Boolean);
   const strip=signedIn()&&fl0.length?`<div class="panel pad" style="margin-bottom:16px;display:grid;gap:8px"><span class="eyebrow" style="margin:0">Following (${fl0.length})</span><div style="display:flex;flex-wrap:wrap;gap:8px">${fl0.map(b=>`<button type="button" class="btn ghost small" data-act="body-pick" data-bid="${b.id}">${esc(bodyTitle(b))}</button>`).join("")}</div></div>`:"";
   if(S.bodyT==null) return bodiesLanding(strip);
   const list=bodyFiltered(),fl=((S.bodyFollows||{})[S.user]||[]).map(bodyById).filter(Boolean);
   if(S.bodyOpen&&S.bodySel&&(String(S.bodySel).startsWith("city:")||entById(S.bodySel)))
-    return `${strip}<div class="actions" style="margin:0 0 12px"><button class="btn ghost small" type="button" data-act="body-back">← Back to ${S.bodyT?esc(S.bodyT)+" list":"all bodies"}</button><button class="btn ghost small" type="button" data-act="body-home">← Appendant Bodies</button></div><div class="panel detail" id="bdetail">${bodyDetail()}</div>`;
+    return `${strip}${bodyCrumbs()}<div class="panel detail" id="bdetail">${bodyDetail()}</div>`;
   if(!list.some(b=>b.id===S.bodySel))S.bodySel=(list[0]||BODIES[0]).id;
   const kinds=["","Chapter","Council","Commandery"];
   const chip=(a,v,cur,l)=>`<button type="button" class="btn ${cur===v?"":"ghost"} small" data-act="${a}" data-v="${esc(v)}">${l}</button>`;
-    return `${strip}<div class="actions" style="margin:0 0 12px"><button class="btn ghost small" type="button" data-act="body-home">← Appendant Bodies</button></div>
+    return `${strip}${bodyCrumbs()}
   <h3 class="sub" style="margin:0 0 10px">${S.bodyT?esc(S.bodyT):"All appendant bodies"}</h3>
   ${S.bodyT==="York Rite"?`<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px">${kinds.map(k=>chip("body-kind",k,S.bodyK||"",k?k.replace(/y$/,"ie")+"s":"All York Rite")).join("")}</div>`:""}
   <div class="panel"><div class="filters"><input type="text" id="bq" placeholder="Search name, number or city" value="${esc(S.bodyQ||"")}" aria-label="Search bodies"><div class="count" id="bcount">${bodyCount(list)}</div></div>
@@ -1051,11 +1072,11 @@ function dirView(){
     return `${myLodgesStrip()}${mine.length?`<div class="panel detail" id="detail">${lodgeDetail()}</div>`:`<div class="panel pad empty">Follow a lodge to see its calendar and Trestle Board here. <button class="linkbtn" type="button" data-act="dir-find">Find a lodge</button></div>`}`;
   }
   if(S.dirOpen&&byNum(S.sel)){
-    return `<div class="actions" style="margin:0 0 12px"><button class="btn ghost small" type="button" data-act="dir-list">← Back to ${S.distPage?esc(dLabel(S.distPage)):"find a lodge"}</button>${signedIn()?`<button class="btn ghost small" type="button" data-act="dir-mine">← Back to My Lodges</button>`:""}</div><div class="panel detail" id="detail">${lodgeDetail()}</div>`}
+    return `${lodgeCrumbs("lodge")}<div class="panel detail" id="detail">${lodgeDetail()}</div>`}
   if(S.distPage&&L.some(l=>l.d===S.distPage)){
-    return `<div class="actions" style="margin:0 0 12px"><button class="btn ghost small" type="button" data-act="dist-list">← Back to find a lodge</button>${signedIn()?`<button class="btn ghost small" type="button" data-act="dir-mine">← Back to My Lodges</button>`:""}</div><div class="panel detail" id="detail">${districtDetail(S.distPage)}</div>`}
+    return `${lodgeCrumbs("dist")}<div class="panel detail" id="detail">${districtDetail(S.distPage)}</div>`}
   const list=filtered(),ds=districts();
-  return `${signedIn()?`<div class="actions" style="margin:0 0 12px"><button class="btn ghost small" type="button" data-act="dir-mine">← Back to My Lodges</button></div>`:""}<h3 class="sub" style="margin:0 0 10px">Find a lodge</h3><div class="panel">
+  return `${lodgeCrumbs("find")}<h3 class="sub" style="margin:0 0 10px">Find a lodge</h3><div class="panel">
     <div class="filters">
       <input type="text" id="q" placeholder="Search name, number, city or county" value="${esc(S.q)}" aria-label="Search lodges">
       <select id="dist" aria-label="District"><option value="">All districts (${ds.length})</option>
