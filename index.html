@@ -946,7 +946,7 @@ function tlHero(){const h=document.getElementById("hero-logo");if(h&&!h._done){h
 function tlHeader(){tlHero();const h=document.getElementById("hdr-logo");if(!h)return;const key=(S.tab||"")+"|"+(S.user||"");if(key!==TL_LAST){TL_LAST=key;tlBurn(h,1400)}}
 document.addEventListener("click",e=>{if(e.target.closest&&e.target.closest("#hdr-logo"))tlBurn(document.getElementById("hdr-logo"),1400)});
 function render(){
-  settleFirstClaims();L=lodges(); renderSwitcher(); renderAcct();
+  settleFirstClaims();applyBodyInfo();L=lodges(); renderSwitcher(); renderAcct();
   const v=document.getElementById("view");
   document.body.classList.toggle("out",!signedIn());
   if(!signedIn()){document.getElementById("tabs").innerHTML="";v.innerHTML=loginView();tlHeader();save();return}
@@ -1017,6 +1017,7 @@ function cityDetail(c){const g=CITYS.find(x=>x.c===c);if(!g)return `<div class="
 function bodyDetail(){
   if(String(S.bodySel).startsWith("city:"))return cityDetail(S.bodySel.slice(5));
   const b=bodyById(S.bodySel);if(!b)return `<div class="empty">Pick a body from the list.</div>`;
+  if(UI.bodyEditing===b.id&&canManageScope("e:"+b.id))return bodyEditForm(b);
   const fol=bodyFollowing(b.id),web=b.web?(/^https?:/i.test(b.web)?b.web:"https://"+b.web):"";
   const src=b.lvl==="body"||b.lvl==="orient"?"the Scottish Rite structure of a Valley and its four bodies (please verify the body names and degree ranges)":b.t==="Shrine"?"Texas Shrine Association member temples list":b.t==="Scottish Rite"?"Dallas Scottish Rite related links list":"Grand Royal Arch Chapter, Grand Council and Grand Commandery of Texas directories (yorkritetexas.org)";
   const lvlName=b.lvl==="master"?"York Rite · "+BKIND[b.k]+"s":b.lvl==="orient"?"Scottish Rite · Orient of Texas":b.lvl==="valley"?"Scottish Rite · Valley":b.lvl==="body"?"Scottish Rite · "+b.bn:"";
@@ -1027,13 +1028,43 @@ function bodyDetail(){
 `:"";
   return `<div class="eyebrow">${esc(lvlName||b.t+(b.k?" · "+BKIND[b.k]:""))}</div><h2 class="title">${esc(bodyTitle(b))}</h2>
   <div style="display:flex;gap:6px;flex-wrap:wrap"><span class="chip acc">${esc(b.t)}</span>${isEntMember(b.id)?`<span class="chip mem">Your body</span>`:""}${fol?`<span class="chip mem">Following</span>`:""}</div>
-  <div class="actions">${signedIn()?`<button class="btn ${fol?"ghost":""}" type="button" data-act="body-follow" data-bid="${b.id}">${fol?"Unfollow":"Follow"}</button>`:`<button class="btn ghost" type="button" disabled>Sign in to follow</button>`}${(()=>{if(!signedIn()||!myProfile())return "";const x=entMem(myProfile(),b.id);if(!x)return `<button class="btn" type="button" data-act="ent-join" data-bid="${b.id}">I'm a member</button>`;return x.pending?`<button class="btn ghost" type="button" disabled>Membership pending</button> <button class="btn ghost small" type="button" data-act="ent-leave" data-bid="${b.id}">Cancel request</button>`:`<button class="btn ghost small" type="button" data-act="ent-leave" data-bid="${b.id}">I'm not a member</button>`})()}</div>
+  <div class="actions">${signedIn()?`<button class="btn ${fol?"ghost":""}" type="button" data-act="body-follow" data-bid="${b.id}">${fol?"Unfollow":"Follow"}</button>`:`<button class="btn ghost" type="button" disabled>Sign in to follow</button>`}${(()=>{if(!signedIn()||!myProfile())return "";const x=entMem(myProfile(),b.id);if(!x)return `<button class="btn" type="button" data-act="ent-join" data-bid="${b.id}">I'm a member</button>`;return x.pending?`<button class="btn ghost" type="button" disabled>Membership pending</button> <button class="btn ghost small" type="button" data-act="ent-leave" data-bid="${b.id}">Cancel request</button>`:`<button class="btn ghost small" type="button" data-act="ent-leave" data-bid="${b.id}">I'm not a member</button>`})()}${canManageScope("e:"+b.id)?`<button class="btn ghost" type="button" data-act="body-edit" data-bid="${b.id}">Edit ${b.lvl==="master"?"board":"body"} info</button>`:""}</div>
   <dl class="facts"><dt>Body</dt><dd>${b.lvl==="master"?"York Rite · top-level board for every "+(b.k==="Commandery"?"Commandery":BKIND[b.k])+" in Texas":b.lvl==="orient"?"Texas Scottish Rite (top level)":b.lvl==="body"?esc(b.bn)+" · "+esc(b.degs)+" degrees":esc(b.t)+(b.k?" · "+esc(BKIND[b.k]):b.t==="Shrine"?" · Shrine temple":" · Valley")}</dd>
-    ${b.n!=null?`<dt>Number</dt><dd>${b.n}</dd>`:""}${b.lvl==="master"?"":`<dt>City</dt><dd>${b.city?esc(b.city):`<span class="unset">Not listed</span>`}</dd>
-    <dt>Website</dt><dd>${web?`<a href="#" data-ext="${esc(web)}">${esc(b.web)}</a>`:`<span class="unset">Not set yet</span>`}</dd>
-    <dt>Meeting</dt><dd><span class="unset">Not set yet</span></dd>`}</dl>
-  ${mngBlock("e:"+b.id)}${srx}${entBoardSection(b,fol)}${subgroupList("e:"+b.id)}${bodyOfficers("e:"+b.id)}${entRosterBlock(b)}${auditBlock("e:"+b.id)}${pendSection("e:"+b.id,bodyTitle(b))}${posManager("e:"+b.id)}<div class="section"><h3 class="sub">Calendar</h3><p class="hint">Coming next. Events and posts from the bodies you follow will show up on your Trestle Board and Calendar next to your lodges.</p></div>
+    ${b.n!=null?`<dt>Number</dt><dd>${b.n}</dd>`:""}<dt>Stated meeting</dt><dd>${b.meet?esc(b.meet):`<span class="unset">Not set yet</span>`}</dd>
+    <dt>Address</dt><dd>${b.addr?esc(b.addr)+(b.city?`<br>${esc(b.city)}, TX`:""):`<span class="unset">Not set yet</span>`}</dd>
+    <dt>City</dt><dd>${b.city?esc(b.city):`<span class="unset">Not listed</span>`}</dd>
+    ${b.mail?`<dt>Mailing address</dt><dd>${esc(b.mail)}</dd>`:""}
+    <dt>Phone</dt><dd>${b.phone?`<a href="tel:${esc(b.phone.replace(/[^0-9+]/g,""))}">${esc(b.phone)}</a>`:`<span class="unset">Not set yet</span>`}</dd>
+    <dt>Email</dt><dd>${b.email?`<a href="mailto:${esc(b.email)}">${esc(b.email)}</a>`:`<span class="unset">Not set yet</span>`}</dd>
+    ${web?`<dt>Website</dt><dd><a href="#" data-ext="${esc(web)}">${esc(b.web)}</a></dd>`:""}</dl>
+  ${srx}${entBoardSection(b,fol)}${subgroupList("e:"+b.id)}${bodyOfficers("e:"+b.id)}${entRosterBlock(b)}${auditBlock("e:"+b.id)}${pendSection("e:"+b.id,bodyTitle(b))}<div class="section"><h3 class="sub">Calendar</h3><p class="hint">Coming next. Events and posts from the bodies you follow will show up on your Trestle Board and Calendar next to your lodges.</p></div>
   <p class="hint" style="margin-top:16px">Listing source: ${esc(src)}. Names and cities were copied from a web listing and may be out of date. Please report anything wrong.</p>`}
+function applyBodyInfo(){
+  const all=[...BODIES,...SRX,...YRX];
+  all.forEach(e=>{if(e._o)Object.assign(e,e._o)});
+  Object.entries(S.bodyInfo||{}).forEach(([id,inf])=>{const e=entById(id);if(!e)return;if(!e._o)e._o={name:e.name,city:e.city,web:e.web,meet:e.meet,addr:e.addr,phone:e.phone,email:e.email,mail:e.mail};Object.assign(e,inf)})}
+function bodyEditForm(b){
+  return `<div class="eyebrow">Editing</div><h2 class="title">${esc(bodyTitle(b))}</h2>
+  <form class="edit" id="bodyeditform" data-bid="${esc(b.id)}">
+    <label>Name<input type="text" id="bf-name" value="${esc(b.name||"")}"></label>
+    <label>Stated meeting<input type="text" id="bf-meet" value="${esc(b.meet||"")}" placeholder="e.g. 2nd Tue @ 7:30 PM"></label>
+    <label>Address<input type="text" id="bf-addr" value="${esc(b.addr||"")}"></label>
+    <label>City<input type="text" id="bf-city" value="${esc(b.city||"")}"></label>
+    <label>Phone<input type="tel" id="bf-phone" value="${esc(b.phone||"")}" placeholder="512-555-0100"></label>
+    <label>Email<input type="email" id="bf-email" value="${esc(b.email||"")}" placeholder="secretary@example.org"></label>
+    <label>Mailing address (optional, shows on the page only if filled in)<input type="text" id="bf-mail" value="${esc(b.mail||"")}" placeholder="PO Box, city, state, zip"></label>
+    <label>Website (optional, shows on the page only if filled in)<input type="text" id="bf-web" value="${esc(b.web||"")}" placeholder="https://"></label>
+    <div class="actions"><button class="btn" type="submit">Save changes</button><button class="btn ghost" type="button" data-act="body-edit-cancel">Cancel</button></div>
+  </form>${bodyOfficerManager(b)}${posManager("e:"+b.id)}${subgroupManager("e:"+b.id)}`}
+const bManual=(b,o)=>((S.manualB||{})[b.id]||{})[o]||"";
+function bodyOfficerManager(b){
+  const key="e:"+b.id,ros=entRoster(b.id).sort((a,c)=>a[1].name.localeCompare(c[1].name)),pos=posList(key);
+  const holder=o=>{const h=ros.find(([,p])=>holds(p,key).includes(o));return h?h[0]:""};
+  return `<div class="section"><h3 class="sub">Officers</h3><p class="hint" style="margin:0 0 10px">For each office, pick a member who has joined this body on the Trestle Board, or choose "Type a name" if he is not on the site yet. A picked member gets the title on his profile. A typed name is just text. When he joins, come back here and switch the office to him.</p>
+  <div class="stack" style="padding:0;gap:8px">${pos.map((o,i)=>{const h=holder(o),mv=h?"":bManual(b,o);return `<div class="inline-form" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><b style="min-width:150px">${esc(o)}</b>
+    <select id="boff-${i}" class="boff-sel" data-i="${i}" aria-label="${esc(o)}"><option value="">Vacant</option>${ros.map(([id,p])=>`<option value="${id}" ${id===h?"selected":""}>${esc(p.name)}</option>`).join("")}<option value="__manual" ${mv?"selected":""}>Type a name (not a member yet)</option></select>
+    <input type="text" id="boffm-${i}" value="${esc(mv)}" placeholder="Full name" aria-label="${esc(o)} name" style="${mv?"":"display:none"}">
+    <button class="btn small" type="button" data-act="boff-set" data-bid="${esc(b.id)}" data-i="${i}">Save</button></div>`}).join("")}</div></div>`}
 const BLAND={"Shrine":["Shrine","Shriners temples across Texas, including the Shriners Hospitals mission."],"Scottish Rite":["Scottish Rite","The Texas Scottish Rite, its Valleys, and the four bodies in each Valley."],"York Rite":["York Rite","Royal Arch Chapters, Councils of Royal & Select Masters and Commanderies of Knights Templar."]};
 function bodiesLanding(fl){
   const cnt=t=>BODIES.filter(b=>b.t===t).length,unit={"Shrine":"temples","Scottish Rite":"valleys · "+SRX.filter(e=>e.lvl==="body").length+" bodies","York Rite":"bodies"};
@@ -1209,8 +1240,8 @@ function entRosterBlock(b){
   return `<div class="section"><h3 class="sub">Members on the Trestle Board</h3><p class="hint" style="margin:0 0 10px">These are only the members who have joined the Trestle Board. They are not the full membership of ${esc(bodyTitle(b))}.</p>${canSeeEntRoster(b.id)?(ros.length?`<div class="cards">${ros.map(([id,p])=>`<button type="button" class="card" data-person="${id}"><span style="display:flex;gap:10px;align-items:center"><span class="avatar">${initials(p.name)}</span><span class="t">${esc(p.name)}</span></span><span class="isub">${esc((holds(p,"e:"+b.id)[0])||"Member")}</span></button>`).join("")}</div>`:`<p class="hint">No one has joined from ${esc(bodyTitle(b))} yet. Be the first. <b>One Texas. One Trestle Board.</b></p>`):`<p class="locked">🔒 Only members of ${esc(bodyTitle(b))} and its officers can see the roster.</p>`}</div>`}
 function bodyOfficers(key){
   if(!signedIn())return "";
-  const rows=posList(key).map(pos=>({pos,who:Object.entries(S.profiles).filter(([,q])=>holds(q,key).includes(pos))})).filter(r=>r.who.length);
-  return `<div class="section"><h3 class="sub">Officers</h3>${rows.length?`<ul class="resume">${rows.map(r=>`<li><span class="what">${esc(r.pos)}</span><span>${r.who.map(([id,q])=>`<button type="button" class="linkbtn" data-person="${id}">${esc(q.name)}</button>${q.sample?` <span class="chip pilot">Test</span>`:""}`).join(", ")}</span></li>`).join("")}</ul>`:`<p class="hint">No officers registered yet. The first member to claim a position here is approved automatically.</p>`}</div>`}
+  const eb=entById(key.slice(2)),rows=posList(key).map(pos=>({pos,who:Object.entries(S.profiles).filter(([,q])=>holds(q,key).includes(pos)),man:eb?bManual(eb,pos):""})).filter(r=>r.who.length||r.man);
+  return `<div class="section"><h3 class="sub">Officers</h3>${rows.length?`<ul class="resume">${rows.map(r=>`<li><span class="what">${esc(r.pos)}</span><span>${r.who.map(([id,q])=>`<button type="button" class="linkbtn" data-person="${id}">${esc(q.name)}</button>${q.sample?` <span class="chip pilot">Test</span>`:""}`).join(", ")}${!r.who.length&&r.man?`${esc(r.man)} <span class="isub">Not on the site yet</span>`:""}</span></li>`).join("")}</ul>`:`<p class="hint">No officers registered yet. The first member to claim a position here is approved automatically.</p>`}</div>`}
 function lodgeDetail(){
   const l=byNum(S.sel); if(!l) return `<div class="empty">Pick a lodge from the list.</div>`;
   if(UI.editing&&canEdit(l)) return editLodgeForm(l);
@@ -2179,6 +2210,18 @@ document.addEventListener("click",e=>{
     case "invite-cancel":{const pp=S.profiles[t.dataset.id],l=byNum(S.sel);if(pp&&pp.invited&&l&&canEdit(l)){delete S.profiles[t.dataset.id];S.apps=ensureApps().filter(x=>x.pid!==t.dataset.id);toast("Invitation canceled");render()}break}
     case "edit":UI.editing=true;render();break;
     case "cancel":UI.editing=false;render();break;
+    case "body-edit":{const b=entById(t.dataset.bid);if(!b||!canManageScope("e:"+b.id))break;UI.bodyEditing=b.id;render();scrollTo(0,0);break}
+    case "body-edit-cancel":UI.bodyEditing=null;render();break;
+    case "boff-set":{const b=entById(t.dataset.bid);if(!b||!canManageScope("e:"+b.id))break;const key="e:"+b.id,i=+t.dataset.i,o=posList(key)[i],pid=(document.getElementById("boff-"+i)||{}).value||"";
+      const typed=pid==="__manual"?((document.getElementById("boffm-"+i)||{}).value||"").trim().replace(/\s+/g," "):"";
+      if(pid==="__manual"&&!typed){toast("Type a name first, or choose Vacant");break}
+      const man=(S.manualB||(S.manualB={}))[b.id]||(S.manualB[b.id]={});
+      const hold=Object.entries(S.profiles).find(([,q])=>holds(q,key).includes(o)),wasN=hold?hold[1].name:man[o]||"";
+      audit(key,`set ${o} to ${pid&&pid!=="__manual"&&S.profiles[pid]?S.profiles[pid].name:typed?typed+" (typed name, not linked)":"vacant"}${wasN?` (was ${wasN})`:""}`);
+      man[o]=typed;
+      Object.values(S.profiles).forEach(p=>["current","bodies"].forEach(k=>{p[k]=(p[k]||[]).filter(c=>!(String(c.title||"").trim()===o&&c.ref&&refKey(c.ref)===key))}));
+      if(pid&&pid!=="__manual"&&S.profiles[pid]){(S.profiles[pid].current||(S.profiles[pid].current=[])).unshift({title:o,body:bodyTitle(b),ref:{t:"e",id:b.id},year:String(new Date().getFullYear())})}
+      toast(pid?`${o} saved`:`${o} is now vacant`);render();break}
     case "district":S.dist="";S.q="";S.dirFind=true;S.dirOpen=false;S.distPage=l.d;render();scrollTo(0,0);break;
     case "add-ev":UI.adding=t.dataset.n?+t.dataset.n:"cal";render();document.getElementById("ev-title")?.focus();break;
     case "cancel-ev":UI.adding=null;render();break;
@@ -2237,6 +2280,13 @@ document.addEventListener("submit",e=>{
     const hits=dupHits(nm,em,l.n,null,null);
     if(hits.length){UI.addWarn={nm,em,dg,dt,lodge:l.n,hits};render();return}
     UI.addWarn=null;createMember(l,nm,em,dg,dt);toast(`${nm} added. Invitation emails go out once the site is live.`);render();return}
+  if(f.id==="bodyeditform"){const b=entById(f.dataset.bid);if(!b||!canManageScope("e:"+b.id))return;const v=i=>(document.getElementById(i).value||"").trim();
+    const next={name:v("bf-name"),meet:v("bf-meet"),addr:v("bf-addr"),city:v("bf-city"),phone:v("bf-phone"),email:v("bf-email"),mail:v("bf-mail"),web:v("bf-web")};
+    if(!next.name){toast("A name is required");return}
+    const LB={name:"name",meet:"meeting",addr:"address",city:"city",phone:"phone",email:"email",mail:"mailing address",web:"website"},sh=x=>{x=String(x==null?"":x);return x?'"'+x.slice(0,60)+(x.length>60?"...":"")+'"':"(blank)"};
+    const changed=Object.keys(next).filter(k=>next[k]!==(b[k]||""));
+    if(changed.length){audit("e:"+b.id,"changed "+changed.map(k=>`${LB[k]} from ${sh(b[k])} to ${sh(next[k])}`).join("; "));(S.bodyInfo||(S.bodyInfo={}))[b.id]=next;logIt(`edited ${bodyTitle(b)}`)}
+    UI.bodyEditing=null;toast(changed.length?"Saved":"No changes");render();return}
   if(f.dataset.newgrp){const k=f.dataset.newgrp;if(!canManageScope(k)){toast("You can't build a Trestle Board there");return}
     const fd=new FormData(f),nm=(fd.get("name")||"").trim(),ds=(fd.get("desc")||"").trim();if(!nm){toast("Name the Trestle Board first");return}
     if(gKids(k).some(x=>x.name.toLowerCase()===nm.toLowerCase())){toast("There is already one with that name here");return}
@@ -2307,6 +2357,7 @@ document.addEventListener("submit",e=>{
 });
 document.addEventListener("change",e=>{
   const t=e.target;
+  if(t.classList&&t.classList.contains("boff-sel")){const x=document.getElementById("boffm-"+t.dataset.i);if(x){x.style.display=t.value==="__manual"?"":"none";if(t.value==="__manual")x.focus()}return}
   if(t.classList&&t.classList.contains("off-sel")){const x=document.getElementById("offt-"+t.dataset.i);if(x){x.style.display=t.value==="__manual"?"":"none";if(t.value==="__manual")x.focus()}return}
   if(t.id==="viewas"){S.user=t.value;{const pr=S.profiles[(USERS.find(u=>u.id===t.value)||{}).profile];if(pr)pr.lastLogin=new Date().toISOString()}UI={editing:false,editProfile:false,adding:null,confirmDel:null};const u=me();const ml=myLodges().filter(n=>n!==0);if(ml.length)S.sel=ml[0];if(u.profile)S.prof=u.profile;render();toast(`Now viewing as ${u.label}`);return}
   if(t.dataset&&t.dataset.bylaw){const n=+t.dataset.bylaw,l=byNum(n),f=t.files&&t.files[0];t.value="";if(!l||!canEdit(l)||!f)return;
