@@ -257,6 +257,11 @@ table.matrix thead th{font-size:12px;text-transform:uppercase;letter-spacing:.06
 .linklike{background:none;border:0;padding:0;color:var(--accent);text-decoration:underline;cursor:pointer;font:inherit;text-align:left}
 .xbtn{background:none;border:0;color:var(--danger);cursor:pointer;font-size:13px;padding:0 4px}
 .profile-head{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+.logo{display:block;object-fit:contain;border-radius:12px;background:var(--surface);border:1px solid var(--line);padding:4px;flex:none}
+.logo.hero{width:76px;height:76px}.logo.ph{display:grid;place-items:center;border-style:dashed;color:var(--muted);font-size:12px;padding:0}
+.logo-hd{display:grid;gap:4px;justify-items:center;flex:none}
+.logo-row{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap}
+.num.logo-num{display:grid;place-items:center;justify-self:end}.num.logo-num img{width:38px;height:38px;object-fit:contain;border-radius:6px;background:var(--surface)}
 /* calendar */
 .calbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-bottom:12px}
 .calnav{display:flex;align-items:center;gap:8px}
@@ -1042,7 +1047,7 @@ function bodyItem(b){
     return `<div class="tnode" style="display:flex;align-items:stretch;border-bottom:1px solid var(--line)"><button type="button" class="btn ghost small" title="Open or close this group" style="border:0;border-right:2px solid var(--line);border-radius:0;width:52px;flex:none;font-size:24px;line-height:1;color:var(--accent);font-weight:700" data-act="city-toggle" data-city="${esc(b.city)}" aria-expanded="${open}" aria-label="${open?"Collapse":"Expand"} ${esc(b.city)}">${open?"▾":"▸"}</button><button type="button" class="item" style="flex:1;min-width:0" data-act="body-sel" data-bid="${esc(b.id)}" aria-current="${S.bodySel===b.id}"><span class="num">${b.ents.length}</span><span style="min-width:0"><span class="iname">${esc(b.city)}</span><span class="isub">${esc(ts.join(" · "))}</span></span></button></div>`}
   const tree=(S.bodyT==="Scottish Rite"||S.bodyT==="York Rite")&&!(S.bodyQ||"").trim()&&b.lvl;const ind="";
   const kids=b.lvl==="orient"||b.lvl==="valley"||b.lvl==="master",open=!!(S.srOpen||{})[b.id];
-  const row=`<button type="button" class="item" style="${ind}${tree&&kids?"flex:1;min-width:0;":""}" data-act="body-sel" data-bid="${b.id}" aria-current="${S.bodySel===b.id}"><span class="num">${b.lvl==="orient"?"TX":b.lvl==="master"?({Chapter:"RA",Council:"CM",Commandery:"KT"})[b.k]:b.lvl==="body"?b.abbr:b.n!=null?b.n:b.t==="Shrine"?"SH":"SR"}</span>
+  const row=`<button type="button" class="item" style="${ind}${tree&&kids?"flex:1;min-width:0;":""}" data-act="body-sel" data-bid="${b.id}" aria-current="${S.bodySel===b.id}">${logoThumb(b.logo,b.lvl==="orient"?"TX":b.lvl==="master"?({Chapter:"RA",Council:"CM",Commandery:"KT"})[b.k]:b.lvl==="body"?b.abbr:b.n!=null?b.n:b.t==="Shrine"?"SH":"SR")}
   <span style="min-width:0"><span class="iname">${esc(b.name)}</span><span class="isub">${b.lvl==="master"?"Top level · "+YRKIDS(b).length+" "+(b.k==="Commandery"?"commanderies":b.k.toLowerCase()+"s"):b.lvl==="orient"?"Top level · 9 Valleys":b.lvl==="valley"?"Valley · 4 bodies":b.lvl==="body"?esc(b.degs)+" degrees":b.t==="York Rite"?esc(b.k)+" · "+esc(b.city||"—"):esc(b.city||"—")}</span></span><span>${bodyFollowing(b.id)?`<span class="chip">Following</span>`:""}</span></button>`;
   if(!(tree&&kids))return row;
   return `<div class="tnode" style="display:flex;align-items:stretch;border-bottom:1px solid var(--line)"><button type="button" class="btn ghost small" title="Open or close this group" style="border:0;border-right:2px solid var(--line);border-radius:0;width:52px;flex:none;font-size:24px;line-height:1;color:var(--accent);font-weight:700" data-act="sr-toggle" data-bid="${b.id}" aria-expanded="${open}" aria-label="${open?"Collapse":"Expand"} ${esc(b.name)}">${open?"▾":"▸"}</button>${row}</div>`}
@@ -1064,7 +1069,7 @@ function bodyDetail(){
   const srx=(b.lvl||b.t==="York Rite")?`${par?`<p class="hint" style="margin:10px 0 0">Part of <button class="linkbtn" type="button" data-act="body-sel" data-bid="${par.id}">${esc(bodyTitle(par))}</button>${entParent(par)?` · <button class="linkbtn" type="button" data-act="body-sel" data-bid="${entParent(par)}">Texas Scottish Rite</button>`:""}</p>`:""}
     ${kids.length?`<div class="section"><h3 class="sub">${b.lvl==="master"?"Bodies under this board":b.lvl==="orient"?"Valleys":"Bodies in this Valley"}</h3><div class="cards">${kids.map(k=>`<button type="button" class="card" data-act="body-sel" data-bid="${k.id}"><span class="t">${esc(b.lvl==="orient"||b.lvl==="master"?bodyTitle(k):k.bn)}</span><span class="isub">${k.degs?esc(k.degs)+" degrees":esc(k.city||"")}</span></button>`).join("")}</div></div>`:""}
 `:"";
-  return `<div class="eyebrow">${esc(lvlName||b.t+(b.k?" · "+BKIND[b.k]:""))}</div><h2 class="title">${esc(bodyTitle(b))}</h2>
+  return `<div class="logo-row">${logoHd("e",b.id,b.logo)}<div style="min-width:0;flex:1 1 240px"><div class="eyebrow">${esc(lvlName||b.t+(b.k?" · "+BKIND[b.k]:""))}</div><h2 class="title">${esc(bodyTitle(b))}</h2></div></div>
   <div style="display:flex;gap:6px;flex-wrap:wrap"><span class="chip acc">${esc(b.t)}</span>${isEntMember(b.id)?`<span class="chip mem">Your body</span>`:""}${fol?`<span class="chip mem">Following</span>`:""}</div>
   <div class="actions">${signedIn()?`<button class="btn ${fol?"ghost":""}" type="button" data-act="body-follow" data-bid="${b.id}">${fol?"Unfollow":"Follow"}</button>`:`<button class="btn ghost" type="button" disabled>Sign in to follow</button>`}${(()=>{if(!signedIn()||!myProfile())return "";const x=entMem(myProfile(),b.id);if(!x)return `<button class="btn" type="button" data-act="ent-join" data-bid="${b.id}">I'm a member</button>`;return x.pending?`<button class="btn ghost" type="button" disabled>Membership pending</button> <button class="btn ghost small" type="button" data-act="ent-leave" data-bid="${b.id}">Cancel request</button>`:`<button class="btn ghost small" type="button" data-act="ent-leave" data-bid="${b.id}">I'm not a member</button>`})()}${canManageScope("e:"+b.id)?`<button class="btn ghost" type="button" data-act="body-edit" data-bid="${b.id}">Edit ${b.lvl==="master"?"board":"body"} info</button>`:""}</div>
   <dl class="facts"><dt>Body</dt><dd>${b.lvl==="master"?"York Rite · top-level board for every "+(b.k==="Commandery"?"Commandery":BKIND[b.k])+" in Texas":b.lvl==="orient"?"Texas Scottish Rite (top level)":b.lvl==="body"?esc(b.bn)+" · "+esc(b.degs)+" degrees":esc(b.t)+(b.k?" · "+esc(BKIND[b.k]):b.t==="Shrine"?" · Shrine temple":" · Valley")}</dd>
@@ -1079,10 +1084,24 @@ function bodyDetail(){
 function applyBodyInfo(){
   const all=[...BODIES,...SRX,...YRX];
   all.forEach(e=>{if(e._o)Object.assign(e,e._o)});
-  Object.entries(S.bodyInfo||{}).forEach(([id,inf])=>{const e=entById(id);if(!e)return;if(!e._o)e._o={name:e.name,city:e.city,web:e.web,meet:e.meet,addr:e.addr,phone:e.phone,email:e.email,mail:e.mail};Object.assign(e,inf)})}
+  Object.entries(S.bodyInfo||{}).forEach(([id,inf])=>{const e=entById(id);if(!e)return;if(!e._o)e._o={name:e.name,city:e.city,web:e.web,meet:e.meet,addr:e.addr,phone:e.phone,email:e.email,mail:e.mail,logo:e.logo};Object.assign(e,inf)})}
+const logoThumb=(url,txt)=>url?`<span class="num logo-num"><img src="${url}" alt="" loading="lazy"></span>`:`<span class="num">${txt}</span>`;
+const logoCan=(kind,id)=>kind==="e"?canManageScope("e:"+id):(()=>{const l=byNum(id);return !!l&&canEdit(l)})();
+function logoHd(kind,id,url){const can=signedIn()&&logoCan(kind,id);if(!url&&!can)return "";
+  return `<div class="logo-hd">${url?`<img class="logo hero" src="${url}" alt="Logo">`:`<span class="logo hero ph">Logo</span>`}${can?`<label class="linkbtn" style="cursor:pointer;font-size:12px">${url?"Change logo":"Add logo"}<input type="file" class="logo-file" data-lk="${kind}" data-lid="${esc(id)}" accept="image/*" hidden></label>`:""}</div>`}
+function logoBlock(kind,id){const url=(kind==="e"?entById(id):byNum(id)||{}).logo||"";
+  return `<div class="logo-edit" style="display:flex;gap:14px;align-items:center;margin-bottom:6px">${url?`<img class="logo hero" src="${url}" alt="Logo">`:`<span class="logo hero ph">Logo</span>`}<div style="display:grid;gap:6px;justify-items:start"><b>Logo or photo</b><label class="btn ghost small" style="cursor:pointer">${url?"Change logo":"Upload logo"}<input type="file" class="logo-file" data-lk="${kind}" data-lid="${esc(id)}" accept="image/*" hidden></label>${url?`<button class="linkbtn" type="button" data-act="logo-remove" data-lk="${kind}" data-lid="${esc(id)}">Remove logo</button>`:""}<span class="hint" style="margin:0">A crest, a square and compass, or a photo of the building. It shows on the page and in the lists.</span></div></div>`}
+function setLogo(kind,id,url){
+  if(!logoCan(kind,id))return;
+  if(kind==="e"){(S.bodyInfo||(S.bodyInfo={}))[id]=Object.assign(S.bodyInfo[id]||{},{logo:url});audit("e:"+id,url?"updated the logo":"removed the logo");logIt((url?"updated":"removed")+" the logo of "+bodyTitle(entById(id)))}
+  else{id=+id;S.edits[id]=Object.assign(S.edits[id]||{},{logo:url});audit(id===0?"gl":"l:"+id,url?"updated the logo":"removed the logo");logIt((url?"updated":"removed")+" the logo of "+lname(byNum(id)))}
+  L=lodges();applyBodyInfo();
+  const w=document.querySelector(".logo-edit");if(w)w.outerHTML=logoBlock(kind,id);else render();
+  toast(url?"Logo saved":"Logo removed")}
 function bodyEditForm(b){
   return `<div class="eyebrow">Editing</div><h2 class="title">${esc(bodyTitle(b))}</h2>
   <form class="edit" id="bodyeditform" data-bid="${esc(b.id)}">
+    ${logoBlock("e",b.id)}
     <label>Name<input type="text" id="bf-name" value="${esc(b.name||"")}"></label>
     <label>Stated meeting<input type="text" id="bf-meet" value="${esc(b.meet||"")}" placeholder="e.g. 2nd Tue @ 7:30 PM"></label>
     <label>Address<input type="text" id="bf-addr" value="${esc(b.addr||"")}"></label>
@@ -1191,7 +1210,7 @@ function districtDetail(d){
   ${real?`<div class="section"><h3 class="sub">Calendar</h3>${calendar({keys:["d:"+d],scope:"d:"+d})}</div>`:""}<div class="section"><h3 class="sub">Lodges</h3><div class="cards">${ls.map(l=>`<button type="button" class="card" data-lodge="${l.n}"><span class="t">${esc(lname(l))}</span><span class="isub">${esc(l.city||"—")}${l.meet?" · "+esc(l.meet):""}</span></button>`).join("")}</div></div>`}
 function item(l){
   const tags=[isMember(l)?`<span class="chip mem">${l.gl?"Officer":"Member"}</span>`:following(l)?`<span class="chip">Following</span>`:"",l.gl?`<span class="chip acc">Grand Lodge</span>`:l.pilot?`<span class="chip pilot">Pilot</span>`:"",lstatChip(l)].join(" ");
-  return `<button type="button" class="item" data-lodge="${l.n}" aria-current="${S.sel===l.n}"><span class="num">${l.gl?"GL":l.n}</span>
+  return `<button type="button" class="item" data-lodge="${l.n}" aria-current="${S.sel===l.n}">${logoThumb(l.logo,l.gl?"GL":l.n)}
     <span style="min-width:0"><span class="iname">${esc(l.name)}</span><span class="isub">${esc(l.city||"—")} · ${l.gl?"Statewide body":l.d==="Statewide"?"Statewide":"Dist. "+esc(l.d)}</span></span><span>${tags}</span></button>`;
 }
 const OFFICES=["Worshipful Master","Senior Warden","Junior Warden","Treasurer","Secretary","Chaplain","Senior Deacon","Junior Deacon","Senior Steward","Junior Steward","Marshal","Master of Ceremonies","Musician","Tiler"];
@@ -1331,8 +1350,8 @@ function lodgeDetail(){
   else fb=`<button class="btn ${following(l)?"ghost":""}" type="button" data-act="follow">${following(l)?"Unfollow":"Follow"}</button>`;
   if(signedIn()&&!l.gl&&!isMember(l)&&myProfile()) fb+=myPendingAff(l)?` <button class="btn ghost" type="button" disabled>Affiliation pending</button>`:` <button class="btn ghost" type="button" data-act="aff-request" data-n="${l.n}">Request to affiliate</button>`;
   const roster=Object.entries(S.profiles).filter(([,p])=>p.lodges.some(x=>x.n===l.n&&!x.pending));
-  return `<div class="eyebrow">${l.gl?"Statewide governing body":l.d==="Statewide"?"Statewide lodge":"District "+esc(l.d)} · ${esc(l.city||"")}${l.gl?"":" · "+esc(l.county||"")+" County"}</div>
-  <h2 class="title">${l.gl?esc(l.name):`${esc(l.name)} Lodge No. ${l.n}`}</h2>
+  return `<div class="logo-row">${logoHd("l",l.n,l.logo)}<div style="min-width:0;flex:1 1 240px"><div class="eyebrow">${l.gl?"Statewide governing body":l.d==="Statewide"?"Statewide lodge":"District "+esc(l.d)} · ${esc(l.city||"")}${l.gl?"":" · "+esc(l.county||"")+" County"}</div>
+  <h2 class="title">${l.gl?esc(l.name):`${esc(l.name)} Lodge No. ${l.n}`}</h2></div></div>
   <div style="display:flex;gap:6px;flex-wrap:wrap">${l.gl?`<span class="chip acc">Grand Lodge</span>`:l.pilot?`<span class="chip pilot">Pilot lodge</span>`:""}${lstatChip(l)}${isMember(l)?`<span class="chip mem">${l.gl?"You are an officer":"Your lodge"}</span>`:""}</div>
   ${l.gl?`<p class="hint" style="margin:8px 0 0">Follow the Grand Lodge to get the Grand Master's calendar and statewide events on your calendar.</p>`:""}
   <div class="actions">${fb}<button class="btn ghost" type="button" data-act="lodge-board" data-n="${l.n}">${l.gl?"Grand Lodge":"Lodge"} Trestle Board</button>${canEdit(l)?`<button class="btn ghost" type="button" data-act="edit">Edit ${l.gl?"Grand Lodge":"lodge"} info</button>`:""}${!l.gl&&l.d!=="Statewide"?`<button class="btn ghost" type="button" data-act="district">All District ${esc(l.d)} lodges</button>`:""}</div>
@@ -1363,6 +1382,7 @@ function editLodgeForm(l){
   const moveOk=can("editAnyLodge");
   return `<div class="eyebrow">Editing</div><h2 class="title">${esc(lname(l))}</h2>
   <form class="edit" id="editform">
+    ${logoBlock("l",l.n)}
     <label>Lodge name<input type="text" id="f-name" value="${esc(l.name)}"></label>
     ${l.gl?`<input type="hidden" id="f-meet" value=""><input type="hidden" id="f-dist" value="Grand Lodge">`:`<label>Stated meeting<input type="text" id="f-meet" value="${esc(l.meet)}" placeholder="e.g. 2nd Tue @ 7:30 PM"><span class="hint">Use this format and stated meetings show up on the calendar automatically.</span></label>`}
     <label>Address<input type="text" id="f-addr" value="${esc(l.addr)}"></label>
@@ -2211,6 +2231,7 @@ document.addEventListener("click",e=>{
     case "signout":S.user="public";S.tab="feed";UI={editing:false,editProfile:false,adding:null,confirmDel:null};render();scrollTo(0,0);toast("Signed out");break;
     case "welcome-ok":{S.welcomed=S.welcomed||{};S.welcomed[S.user]=1;render();break}
     case "signin":{S.user="mark";S.tab="feed";UI={editing:false,editProfile:false,adding:null,confirmDel:null};const ml=myLodges().filter(n=>n!==0);if(ml.length)S.sel=ml[0];if(me().profile)S.prof=me().profile;render();scrollTo(0,0);toast("Signed in as Mark (demo)");break}
+    case "logo-remove":setLogo(t.dataset.lk,t.dataset.lid,"");break;
     case "photo-remove":{const p=editTarget();if(!p)break;stashProfileForm(p);ct(p,"photo").v="";logIt("removed their profile picture");render();break}
     case "ent-join":{const pr=myProfile(),b=entById(t.dataset.bid);if(!pr||!b)break;if(!entMem(pr,b.id)){const now=new Date().toISOString();(pr.ents||(pr.ents=[])).push({id:b.id,since:"",pending:true,requested:now});settleFirstClaims();const x=entMem(pr,b.id);if(!x.pending){const a=(S.bodyFollows||(S.bodyFollows={}))[S.user]||(S.bodyFollows[S.user]=[]);if(!a.includes(b.id))a.push(b.id);logIt(`joined ${bodyTitle(b)}`);audit("e:"+b.id,"joined the Trestle Board as a member");toast(`You are now listed as a member of ${bodyTitle(b)}`)}else{logIt(`asked to join ${bodyTitle(b)}`);audit("e:"+b.id,"asked to join as a member");toast(`Request sent. An officer of ${bodyTitle(b)} will approve it.`)}}render();break}
     case "ent-leave":{const pr=myProfile(),b=entById(t.dataset.bid);if(!pr||!b)break;pr.ents=(pr.ents||[]).filter(x=>x.id!==b.id);logIt(`left ${bodyTitle(b)}`);audit("e:"+b.id,"left the member list");toast(`Removed from ${bodyTitle(b)}`);render();break}
@@ -2401,7 +2422,7 @@ document.addEventListener("submit",e=>{
     if(!next.name){toast("A name is required");return}
     const LB={name:"name",meet:"meeting",addr:"address",city:"city",phone:"phone",email:"email",mail:"mailing address",web:"website"},sh=x=>{x=String(x==null?"":x);return x?'"'+x.slice(0,60)+(x.length>60?"...":"")+'"':"(blank)"};
     const changed=Object.keys(next).filter(k=>next[k]!==(b[k]||""));
-    if(changed.length){audit("e:"+b.id,"changed "+changed.map(k=>`${LB[k]} from ${sh(b[k])} to ${sh(next[k])}`).join("; "));(S.bodyInfo||(S.bodyInfo={}))[b.id]=next;logIt(`edited ${bodyTitle(b)}`)}
+    if(changed.length){audit("e:"+b.id,"changed "+changed.map(k=>`${LB[k]} from ${sh(b[k])} to ${sh(next[k])}`).join("; "));(S.bodyInfo||(S.bodyInfo={}))[b.id]=Object.assign(S.bodyInfo[b.id]||{},next);logIt(`edited ${bodyTitle(b)}`)}
     UI.bodyEditing=null;toast(changed.length?"Saved":"No changes");render();return}
   if(f.dataset.newgrp){const k=f.dataset.newgrp;if(!canManageScope(k)){toast("You can't build a Trestle Board there");return}
     const fd=new FormData(f),nm=(fd.get("name")||"").trim(),ds=(fd.get("desc")||"").trim();if(!nm){toast("Name the Trestle Board first");return}
@@ -2497,6 +2518,9 @@ document.addEventListener("change",e=>{
     render();return}
   if(t.id==="scope"){S.calScope=t.value;render();return}
   if(t.dataset.sw===undefined&&t.id&&t.id.startsWith("pv-")){const s=document.querySelector(`[data-sw="${t.id}"]`);if(s)s.textContent=t.checked?"Public":"Private";return}
+  if(t.classList&&t.classList.contains("logo-file")){const f=t.files&&t.files[0],lk=t.dataset.lk,lid=t.dataset.lid;if(!f)return;const img=new Image(),url=URL.createObjectURL(f),png=/png|svg|gif|webp/.test(f.type);
+    img.onload=()=>{const m=Math.max(img.width,img.height,1),k=Math.min(1,320/m),c=document.createElement("canvas");c.width=Math.max(1,Math.round(img.width*k));c.height=Math.max(1,Math.round(img.height*k));c.getContext("2d").drawImage(img,0,0,c.width,c.height);URL.revokeObjectURL(url);setLogo(lk,lid,png?c.toDataURL("image/png"):c.toDataURL("image/jpeg",.85))};
+    img.onerror=()=>{URL.revokeObjectURL(url);toast("That file isn't an image I can read")};img.src=url;return}
   if(t.id==="photo-file"){const f=t.files&&t.files[0];if(!f)return;const img=new Image(),url=URL.createObjectURL(f);
     img.onload=()=>{const c=document.createElement("canvas"),s=Math.min(img.width,img.height),N=160;c.width=c.height=N;c.getContext("2d").drawImage(img,(img.width-s)/2,(img.height-s)/2,s,s,0,0,N,N);URL.revokeObjectURL(url);const p=editTarget();if(!p)return;stashProfileForm(p);ct(p,"photo").v=c.toDataURL("image/jpeg",.82);logIt("updated their profile picture");render();toast("Photo updated.")};
     img.onerror=()=>{URL.revokeObjectURL(url);toast("That file isn't an image I can read")};img.src=url;return}
