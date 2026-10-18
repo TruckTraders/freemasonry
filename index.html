@@ -56,7 +56,9 @@ body::after{content:"";position:fixed;right:-60px;bottom:-60px;width:380px;heigh
 #tl-splash .in{display:grid;justify-items:center;gap:16px;text-align:center;padding:16px}
 #tl-splash .tlogo{width:min(46vw,200px);height:min(46vw,200px);color:#d3a94f}
 #tl-splash b{font-family:var(--f-display);font-weight:400;font-size:clamp(20px,5vw,30px);letter-spacing:.04em}
-#tl-splash small{opacity:.75;letter-spacing:.14em;text-transform:uppercase;font-size:12px}
+#tl-splash small{opacity:.9;letter-spacing:.16em;text-transform:uppercase;font-size:clamp(12px,3vw,15px)}
+#tl-splash::before{content:"";position:absolute;inset:0;background:var(--splash-img,none) center/cover no-repeat;opacity:.38}
+#tl-splash .in{position:relative}
 @media (prefers-reduced-motion:reduce){#tl-splash{display:none}}
 
 header.bar{background:var(--surface);border-bottom:1px solid var(--line)}
@@ -358,7 +360,7 @@ table.matrix thead th{font-size:12px;text-transform:uppercase;letter-spacing:.06
   <section id="view"></section>
 </main>
 <div class="tl-foot"><i></i><span>The Trestle Board · for Texas Masons</span></div>
-<div id="tl-splash" hidden><div class="in"><svg class="tlogo" id="spl-logo" viewBox="0 0 34 34" aria-hidden="true"></svg><b>The Trestle Board</b><small>Texas Lodge Hub</small></div></div>
+<div id="tl-splash" hidden><div class="in"><svg class="tlogo" id="spl-logo" viewBox="0 0 34 34" aria-hidden="true"></svg><b>The Trestle Board</b><small>One Texas. One Trestle Board.</small></div></div>
 <div class="toast" id="toast" hidden></div>
 
 <script>
@@ -790,7 +792,7 @@ function prettyDate(s){const[y,m,d]=s.split("-").map(Number);const dt=new Date(y
 
 /* ---------- shell ---------- */
 function loginView(){
-  return `<div class="panel login"><h2>The Trestle Board</h2><p class="sub">Sign in to your lodges</p>
+  return `<div class="panel login"><h2>The Trestle Board</h2><p class="sub" style="margin-bottom:2px"><b>One Texas. One Trestle Board.</b></p><p class="sub">Sign in to your lodges</p>
     <div class="fake" aria-hidden="true"><span>Username</span><div>Username or email</div></div>
     <div class="fake" aria-hidden="true"><span>Password</span><div>Password</div></div>
     <button class="btn" type="button" data-act="signin" id="login-btn">Login</button>
