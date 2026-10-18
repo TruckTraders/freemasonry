@@ -1101,7 +1101,7 @@ function officerManager(l){
     <span class="hint">Invitation emails go out once the site is live. For now he is added to the roster as "Invited".</span></form></div>
   ${applicationsBlock(l)}
   <div class="section"><h3 class="sub">Members</h3><p class="hint" style="margin:0 0 10px">Everyone on this lodge's roster. Open a member to edit his profile if you have permission.</p>
-  ${ros.length?`<div class="cards">${ros.map(([id,p])=>`<button type="button" class="card" data-person="${id}"><span style="display:flex;gap:10px;align-items:center"><span class="avatar">${initials(p.name)}</span><span class="t">${esc(p.name)}</span></span><span class="isub">${esc(officeIn(p,l)||"Member")}</span><span><span class="chip acc">${esc(DTITLE[degP(p)])}</span> ${p.invited?`<span class="chip">Invited, not signed in</span>`:`<span class="chip">Active</span>`} <span class="chip">Status changes: coming soon</span></span></button>${p.invited?`<span class="actions" style="margin:4px 0 12px;gap:6px"><button class="btn small ghost" type="button" data-act="invite-resend" data-id="${id}">Resend invitation</button><button class="btn small ghost" type="button" data-act="invite-cancel" data-id="${id}">Cancel invitation</button></span>`:""}`).join("")}</div>`:`<p class="hint">No members have joined on the Hub yet.</p>`}</div>`}
+  ${ros.length?`<div class="cards">${ros.map(([id,p])=>`<button type="button" class="card" data-person="${id}"><span style="display:flex;gap:10px;align-items:center"><span class="avatar">${initials(p.name)}</span><span class="t">${esc(p.name)}</span></span><span class="isub">${esc(officeIn(p,l)||"Member")}</span><span><span class="chip acc">${esc(DTITLE[degP(p)])}</span> ${p.invited?`<span class="chip">Invited, not signed in</span>`:`<span class="chip">Active</span>`} <span class="chip">Status changes: planned</span></span></button>${p.invited?`<span class="actions" style="margin:4px 0 12px;gap:6px"><button class="btn small ghost" type="button" data-act="invite-resend" data-id="${id}">Resend invitation</button><button class="btn small ghost" type="button" data-act="invite-cancel" data-id="${id}">Cancel invitation</button></span>`:""}`).join("")}</div>`:`<p class="hint">No members have joined on the Hub yet.</p>`}</div>`}
 function pendSection(key,name){
   const mine=meP();
   if(canApproveKey(key)){const pp=pendingPeople(key);
@@ -1495,7 +1495,7 @@ function mentorView(){
 function cardView(){
   if(!signedIn()||!myProfile()) return `<div class="panel pad empty">Your card is for signed-in members with a profile.</div>`;
   return `<div class="stack" style="max-width:420px;margin:0 auto"><div class="panel pad" style="text-align:center;display:grid;gap:10px" aria-label="Virtual membership card">
-    <div class="eyebrow">Virtual membership card</div><h2 class="title" style="margin:0">Coming soon</h2>
+    <div class="eyebrow">Virtual membership card</div><h2 class="title" style="margin:0">Planned</h2>
     <div class="chip" style="justify-self:center">Placeholder</div>
     <p class="hint" style="margin:0">A card that shows your standing and a scannable code for the door. It will not go live until the Grand Lodge approves it and our roster links to their records, so the standing it shows is always accurate.</p></div></div>`}
 function openProfile(){if(S.tab!=="profile"&&S.tab!=="account")S.prevTab=S.tab;S.prof=me().profile;S.tab="profile";UI={editing:false,editProfile:false,adding:null,confirmDel:null};render();scrollTo(0,0)}
@@ -1521,8 +1521,8 @@ function accountView(){
     </form></div>
   <div class="panel pad"><h3 class="sub">Settings</h3>
     <div class="acct-row" style="margin:0"><div><b>Login</b><div class="hint" style="margin:0">Password and sign-in options arrive with real accounts. This demo signs you in as a sample user.</div></div><button class="btn ghost small" type="button" disabled>Change password</button></div>
-    <div class="acct-row" style="margin:12px 0 0"><div><b>Notifications</b><div class="hint" style="margin:0">Choose which Trestle Board posts and events email you.</div></div><span class="chip">Coming soon</span></div>
-    <div class="acct-row" style="margin:12px 0 0"><div><b>Dues</b><div class="hint" style="margin:0">Pay dues online.</div></div><span class="chip">Coming soon</span></div>
+    <div class="acct-row" style="margin:12px 0 0"><div><b>Notifications</b><div class="hint" style="margin:0">Choose which Trestle Board posts and events email you.</div></div><span class="chip">Planned</span></div>
+    <div class="acct-row" style="margin:12px 0 0"><div><b>Dues</b><div class="hint" style="margin:0">Pay dues online.</div></div><span class="chip">Planned</span></div>
     <div class="actions" style="margin-top:16px"><button class="btn ghost" type="button" data-act="signout">Sign out</button></div></div></div>`;
 }
 function saveAcct(){
@@ -1615,9 +1615,9 @@ function profileDetail(id){
   <div class="section"><h3 class="sub">Degree on record</h3>${canSetDegree(id)?`<label style="display:grid;gap:4px;max-width:320px"><select id="prof-degree" data-pid="${id}" aria-label="Degree on record">${Object.keys(DTITLE).map(k=>`<option value="${k}" ${degP(p)===k?"selected":""}>${DTITLE[k]}</option>`).join("")}</select><span class="hint">Set by the lodge secretary or another officer who can edit this lodge. It decides what he can see and do on the Trestle Board. An Entered Apprentice or Fellowcraft belongs to the lodge that made him and can follow other lodges but cannot join one without a Grand Lodge dispensation.</span></label>`:`<p style="margin:0"><b>${esc(DTITLE[degP(p)]||"Not on record")}</b></p><p class="hint" style="margin:4px 0 0">Your lodge secretary keeps this on record. ${degP(p)==="MM"?"":`It limits what you can see and do: mentoring (you can have a mentor but can't be one), resources and drills for your degree only.`}</p>`}</div>
   ${canSeeLogin(id)?`<div class="section"><h3 class="sub">Last sign-in</h3><p style="margin:0">${esc(lastSeen(id))}</p><p class="hint" style="margin:4px 0 0">${own?"Your lodge officers and district officers can see when you last signed in.":"Visible to this lodge's officers, district officers and Grand Lodge officers."}</p></div>`:""}
   <div class="section"><h3 class="sub">Lodges and titles</h3>${lodgesAndTitles(p,ed)}
-    ${own?`<div class="actions" style="margin:12px 0 0"><button class="btn ghost small" type="button" disabled>Pay dues online</button><span class="chip">Coming soon</span></div>`:""}</div>
+    ${own?`<div class="actions" style="margin:12px 0 0"><button class="btn ghost small" type="button" disabled>Pay dues online</button><span class="chip">Planned</span></div>`:""}</div>
   <div class="section"><h3 class="sub">Mentoring</h3>${signedIn()?mentorBlock(id):`<p class="hint">Sign in to see mentoring.</p>`}</div>
-  <div class="section"><h3 class="sub">Past titles</h3>${resumeList(p.past,"past",ed)}${ed?addRow("past"):""}</div>
+  ${ed||(p.past||[]).some(c=>!tiedLodge(p,c))?`<div class="section"><h3 class="sub">${ed?"Past titles":"Other past titles"}</h3>${ed?resumeList(p.past,"past",ed):resumeList(p.past,"past",false,c=>!tiedLodge(p,c))}${ed?addRow("past"):""}</div>`:""}
   <div class="section"><h3 class="sub">Esoteric certificates</h3>${resumeList(p.certs,"certs",ed)}${ed?addRow("certs"):""}</div>
   <div class="section"><h3 class="sub">Other Masonic bodies</h3>${resumeList(p.bodies,"bodies",ed)}${ed?addRow("bodies"):""}</div>
   <div class="section"><h3 class="sub">Contact</h3>${ed?`<form class="edit" id="contactform">${!own?`<p class="hint" style="margin:0">You are editing ${esc(p.name)}'s profile as a Super Admin.</p>`:""}
@@ -1982,7 +1982,7 @@ document.addEventListener("click",e=>{
     case "grp-deny":{const g=(S.groups||[]).find(x=>x.id===t.dataset.id);if(!g||!grpAdmin(g))break;g.requests=(g.requests||[]).filter(x=>x!==t.dataset.pid);render();break}
     case "feed-reset":S.feedBoards=null;render();break;
     case "del-post":S.posts=S.posts.filter(p=>p.id!==t.dataset.id);toast("Post deleted");render();break;
-    case "res":toast(`${t.dataset.res} is coming soon`);break;
+    case "res":toast(`${t.dataset.res} is planned`);break;
     case "off-set":{const l=byNum(S.sel);if(!l||!canEdit(l))break;const o=OFFICES[+t.dataset.i],pid=(document.getElementById("off-"+t.dataset.i)||{}).value||"";
       Object.values(S.profiles).forEach(p=>{p.current=(p.current||[]).filter(c=>!(String(c.title||"").trim()===o&&((c.ref&&refKey(c.ref)==="l:"+l.n)||lodgeRe(l).test(String(c.body||"")))))});
       if(pid&&S.profiles[pid]){S.profiles[pid].current.unshift({title:o,body:`${l.name} Lodge No. ${l.n}`,ref:{t:"l",id:l.n},year:String(new Date().getFullYear())})}
