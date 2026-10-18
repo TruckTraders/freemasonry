@@ -1318,7 +1318,9 @@ function agendaItem(e){
 }
 const PAL=["#2f6fb3","#b8791f","#2e8b57","#8a4fb0","#c0504d","#2a9d9d","#7a7a2a","#b05a8a"];
 const keyOf=n=>n===0?"gl":"l:"+n;
-function bodyLabel(k){if(k==="gl")return "Grand Lodge";if(k.startsWith("g:")){const g=gById(k.slice(2));return g?g.name:k}if(k[0]==="d")return "District "+k.slice(2);const l=byNum(+k.slice(2));return l?lname(l):k}
+function bodyLabel(k){if(k==="gl")return "Grand Lodge";
+  if(k==="or")return "Texas Scottish Rite";
+  if(/^[vae]:/.test(k)){const e=entById(k.slice(2));return e?bodyTitle(e):k}if(k.startsWith("g:")){const g=gById(k.slice(2));return g?g.name:k}if(k[0]==="d")return "District "+k.slice(2);const l=byNum(+k.slice(2));return l?lname(l):k}
 function evIn(e,k){return k==="gl"?e.n===0:k[0]==="l"?e.n===+k.slice(2):byNum(e.n)?.d===k.slice(2)}
 function calKeys(){return S.calBodies||(signedIn()?myWorld().map(l=>keyOf(l.n)):[])}
 function bodyBar(keys){
@@ -1849,8 +1851,10 @@ function feedDefaultKeys(){
   myWorld().forEach(l=>{if(l.gl)return;add("l:"+l.n)});
   const ds=new Set(myWorld().filter(l=>!l.gl&&l.d!=="Statewide").map(l=>l.d));if(me().district)ds.add(me().district);
   [...ds].sort((a,b)=>dRank(a)-dRank(b)||a.localeCompare(b)).forEach(d=>add("d:"+d));
-  myGroups().forEach(g=>add("g:"+g.id));
-  add("gl");return ks;
+  add("gl");
+  const eids=new Set(),mp=myProfile();((mp&&mp.ents)||[]).forEach(x=>{if(!x.pending)eids.add(x.id)});((S.bodyFollows||{})[S.user]||[]).forEach(id=>eids.add(id));
+  [...eids].map(entById).filter(Boolean).forEach(e=>entChain(e).slice().reverse().forEach(id=>{const x=entById(id);if(x)add(entBoardKey(x))}));
+  myGroups().forEach(g=>add("g:"+g.id));return ks;
 }
 function feedBar(){
   const def=feedDefaultKeys(),on=S.feedBoards||def,opts=[...def];on.forEach(k=>{if(!opts.includes(k))opts.push(k)});
