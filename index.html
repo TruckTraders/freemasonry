@@ -1007,7 +1007,7 @@ function bodyDetail(){
     ${b.n!=null?`<dt>Number</dt><dd>${b.n}</dd>`:""}<dt>City</dt><dd>${b.t==="York Rite"&&b.city&&CITYS.some(x=>x.c===b.city)?`<button class="linkbtn" type="button" data-act="city-open" data-city="${esc(b.city)}">${esc(b.city)}</button>`:b.city?esc(b.city):`<span class="unset">Not listed</span>`}</dd>
     <dt>Website</dt><dd>${web?`<a href="#" data-ext="${esc(web)}">${esc(b.web)}</a>`:`<span class="unset">Not set yet</span>`}</dd>
     <dt>Meeting</dt><dd><span class="unset">Not set yet</span></dd></dl>
-  ${srx}${entBoardSection(b,fol)}${bodyOfficers("e:"+b.id)}${entRosterBlock(b)}${pendSection("e:"+b.id,bodyTitle(b))}${posManager("e:"+b.id)}<div class="section"><h3 class="sub">Calendar</h3><p class="hint">Coming next. Events and posts from the bodies you follow will show up on your Trestle Board and Calendar next to your lodges.</p></div>
+  ${mngBlock("e:"+b.id)}${srx}${entBoardSection(b,fol)}${subgroupList("e:"+b.id)}${bodyOfficers("e:"+b.id)}${entRosterBlock(b)}${pendSection("e:"+b.id,bodyTitle(b))}${posManager("e:"+b.id)}<div class="section"><h3 class="sub">Calendar</h3><p class="hint">Coming next. Events and posts from the bodies you follow will show up on your Trestle Board and Calendar next to your lodges.</p></div>
   <p class="hint" style="margin-top:16px">Listing source: ${esc(src)}. Names and cities were copied from a web listing and may be out of date. Please report anything wrong.</p>`}
 const BLAND={"Shrine":["Shrine","Shriners temples across Texas, including the Shriners Hospitals mission."],"Scottish Rite":["Scottish Rite","The Texas Scottish Rite, its Valleys, and the four bodies in each Valley."],"York Rite":["York Rite","Royal Arch Chapters, Councils of Royal & Select Masters and Commanderies of Knights Templar."]};
 function bodiesLanding(fl){
@@ -1016,7 +1016,7 @@ function bodiesLanding(fl){
   <div class="cards">${["Shrine","Scottish Rite","York Rite"].map(t=>`<button type="button" class="card" data-act="body-type" data-v="${t}"><span class="t">${BLAND[t][0]}</span><span class="isub">${BLAND[t][1]}</span><span><span class="chip mem">${cnt(t)} ${unit[t]}</span></span></button>`).join("")}</div>
   <p style="margin:16px 0 0"><button class="linkbtn" type="button" data-act="body-type" data-v="">View all ${BODIES.length} bodies</button></p>`}
 function crumbs(items){
-  return `<nav class="crumbs" aria-label="Where you are">${items.map((c,i)=>i===items.length-1?`<span class="cur" aria-current="page">${esc(c.l)}</span>`:`<button type="button" class="linkbtn" data-act="${c.a}"${c.d?` data-${c.d[0]}="${esc(c.d[1])}"`:""}>${esc(c.l)}</button><span class="sep" aria-hidden="true">›</span>`).join("")}</nav>`}
+  return `<nav class="crumbs" aria-label="Where you are">${items.map((c,i)=>i===items.length-1?`<span class="cur" aria-current="page">${esc(c.l)}</span>`:`<button type="button" class="linkbtn" data-act="${c.a}"${c.d?` data-${c.d[0]}="${esc(c.d[1])}"`:""}${c.d2?` data-${c.d2[0]}="${esc(c.d2[1])}"`:""}>${esc(c.l)}</button><span class="sep" aria-hidden="true">›</span>`).join("")}</nav>`}
 function bodyCrumbs(){
   const root={l:"Appendant Bodies",a:"body-home"};
   if(S.bodyOpen&&S.bodySel){
@@ -1095,6 +1095,7 @@ function districtDetail(d){
   const mayPost=real&&signedIn()&&boardsICanPost().some(b=>bKey(b)==="d:"+d);
   return `<div class="eyebrow">${real?"District":"Directory group"}</div><h2 class="title">${esc(dLabel(d))}</h2>
   <div style="display:flex;gap:6px;flex-wrap:wrap"><span class="chip acc">${ls.length} ${ls.length===1?"lodge":"lodges"}</span></div>
+  ${real?mngBlock("d:"+d):""}${real?subgroupList("d:"+d):""}
   ${real?`<div class="section"><h3 class="sub">Trestle Board</h3>${!signedIn()?`<p class="locked">🔒 Sign in to see this Trestle Board.</p>`:`${posts.length?`<div class="stack" style="padding:0;gap:10px">${posts.map(postCard).join("")}</div>`:`<p class="hint">Nothing posted to the District ${esc(d)} board yet. Posts here reach every lodge in the district.</p>`}<div class="actions" style="margin-top:10px"><button class="btn ghost small" type="button" data-act="district-board" data-d="${esc(d)}">Open District ${esc(d)} Trestle Board</button></div>${mayPost?"":`<p class="hint" style="margin:8px 0 0">District officers can post here.</p>`}`}</div>`:""}
   <div class="section"><h3 class="sub">Lodges</h3><div class="cards">${ls.map(l=>`<button type="button" class="card" data-lodge="${l.n}"><span class="t">${esc(lname(l))}</span><span class="isub">${esc(l.city||"—")}${l.meet?" · "+esc(l.meet):""}</span></button>`).join("")}</div></div>`}
 function item(l){
@@ -1214,6 +1215,7 @@ function lodgeDetail(){
   <div class="section"><h3 class="sub">Calendar</h3>${lodgeCal(l)}</div>
   ${bylawsBlock(l)}${l.gl?"":`<div class="section"><h3 class="sub">Officers</h3>${canSeePrivate(l)?officerList(l):`<p class="locked">🔒 Only members of ${esc(lname(l))} and the district officers over it can see the officers.</p>`}</div>`}
   ${l.gl?"":pendSection("l:"+l.n,lname(l))}
+  ${subgroupList(l.gl?"gl":"l:"+l.n)}
   <div class="section"><h3 class="sub">${l.gl?"Grand Lodge officers":"Members on the Trestle Board"}</h3>${l.gl?"":`<p class="hint" style="margin:0 0 10px">These are only the members who have joined the Trestle Board. They are not the lodge's full membership.</p>`}${l.gl||canSeePrivate(l)
     ?(roster.length?`<div class="cards">${roster.map(([id,p])=>personCard(id,p,l.n)).join("")}</div>`:`<p class="hint">No ${l.gl?"officers":"members of this lodge"} have joined the Trestle Board yet.${l.gl?"":" Be the first from this lodge. <b>One Texas. One Trestle Board.</b>"}</p>`)
     :`<p class="locked">🔒 Only members of ${esc(lname(l))} and the district officers over it can see the roster.</p>`}</div>
@@ -1239,7 +1241,7 @@ function editLodgeForm(l){
       ${moveOk?"":`<span class="hint">Only Grand Lodge level roles can move a lodge to another district.</span>`}</label>`}
     ${!l.gl&&can("mergeLodges")?`<label>Lodge status (Grand Lodge officers only)<select id="f-status">${LSTATUS.map(x=>`<option ${x===lstat(l)?"selected":""}>${x}</option>`).join("")}</select><span class="hint">Changes are logged. Lodges that are not Active show a red status tag everywhere.</span></label>`:""}
     <div class="actions"><button class="btn" type="submit">Save changes</button><button class="btn ghost" type="button" data-act="cancel">Cancel</button></div>
-  </form>${officerManager(l)}${l.gl?"":posManager("l:"+l.n)}`;
+  </form>${officerManager(l)}${l.gl?"":posManager("l:"+l.n)}${subgroupManager(l.gl?"gl":"l:"+l.n)}`;
 }
 
 /* ---------- events UI ---------- */
@@ -1269,7 +1271,7 @@ function agendaItem(e){
 }
 const PAL=["#2f6fb3","#b8791f","#2e8b57","#8a4fb0","#c0504d","#2a9d9d","#7a7a2a","#b05a8a"];
 const keyOf=n=>n===0?"gl":"l:"+n;
-function bodyLabel(k){if(k==="gl")return "Grand Lodge";if(k[0]==="d")return "District "+k.slice(2);const l=byNum(+k.slice(2));return l?lname(l):k}
+function bodyLabel(k){if(k==="gl")return "Grand Lodge";if(k.startsWith("g:")){const g=gById(k.slice(2));return g?g.name:k}if(k[0]==="d")return "District "+k.slice(2);const l=byNum(+k.slice(2));return l?lname(l):k}
 function evIn(e,k){return k==="gl"?e.n===0:k[0]==="l"?e.n===+k.slice(2):byNum(e.n)?.d===k.slice(2)}
 function calKeys(){return S.calBodies||(signedIn()?myWorld().map(l=>keyOf(l.n)):[])}
 function bodyBar(keys){
@@ -1724,9 +1726,9 @@ function profileDetail(id){
 
 /* ---------- feed ---------- */
 const bKey=b=>b.t==="gl"?"gl":b.t==="orient"?"or":b.t[0]+":"+b.id;
-const bFromKey=k=>k==="gl"?{t:"gl"}:k==="or"?{t:"orient"}:k.startsWith("v:")?{t:"valley",id:k.slice(2)}:k.startsWith("a:")?{t:"abody",id:k.slice(2)}:k.startsWith("e:")?{t:"ent",id:k.slice(2)}:{t:k[0]==="l"?"lodge":"district",id:k[0]==="l"?+k.slice(2):k.slice(2)};
-function bName(b){if(b.t==="orient")return "Texas Scottish Rite";if(b.t==="valley")return "Valley of "+entById(b.id).city;if(b.t==="abody")return entById(b.id).name;if(b.t==="ent")return bodyTitle(entById(b.id));return b.t==="gl"?"Grand Lodge of Texas":b.t==="district"?"District "+b.id:lname(byNum(b.id))}
-function bReach(b){if(b.t==="orient")return "Every Valley and body of the Texas Scottish Rite";if(b.t==="valley")return "This Valley and its four bodies";if(b.t==="abody"||b.t==="ent")return "Members and followers of this body";return b.t==="gl"?"Every lodge statewide":b.t==="district"?`Every lodge in District ${b.id}`:"Members and followers of this lodge"}
+const bFromKey=k=>k==="gl"?{t:"gl"}:k==="or"?{t:"orient"}:k.startsWith("v:")?{t:"valley",id:k.slice(2)}:k.startsWith("a:")?{t:"abody",id:k.slice(2)}:k.startsWith("e:")?{t:"ent",id:k.slice(2)}:k.startsWith("g:")?{t:"group",id:k.slice(2)}:{t:k[0]==="l"?"lodge":"district",id:k[0]==="l"?+k.slice(2):k.slice(2)};
+function bName(b){if(b.t==="group"){const g=gById(b.id);return g?g.name:"Trestle Board"}if(b.t==="orient")return "Texas Scottish Rite";if(b.t==="valley")return "Valley of "+entById(b.id).city;if(b.t==="abody")return entById(b.id).name;if(b.t==="ent")return bodyTitle(entById(b.id));return b.t==="gl"?"Grand Lodge of Texas":b.t==="district"?"District "+b.id:lname(byNum(b.id))}
+function bReach(b){if(b.t==="group")return "The people on this Trestle Board";if(b.t==="orient")return "Every Valley and body of the Texas Scottish Rite";if(b.t==="valley")return "This Valley and its four bodies";if(b.t==="abody"||b.t==="ent")return "Members and followers of this body";return b.t==="gl"?"Every lodge statewide":b.t==="district"?`Every lodge in District ${b.id}`:"Members and followers of this lodge"}
 function boardsICanPost(){
   if(!signedIn()) return [];
   const out=myLodges().filter(n=>n!==0).map(n=>({t:"lodge",id:n}));
@@ -1735,6 +1737,7 @@ function boardsICanPost(){
     ds.forEach(d=>out.push({t:"district",id:d}));
   }
   if(can("postGrandLodge")) out.push({t:"gl"});
+  myGroups().forEach(g=>out.push({t:"group",id:g.id}));
   const mp=myProfile();if(mp)(mp.ents||[]).forEach(x=>{const e=entById(x.id);if(e&&!x.pending)out.push({t:entBoardType(e),id:e.id})});
   if(can("postScottishRite")){out.push({t:"orient"});SRX.filter(e=>e.lvl==="valley"||true).forEach(e=>{if(e.lvl==="body")out.push({t:"abody",id:e.id})});BODIES.filter(b=>b.lvl==="valley").forEach(v=>out.push({t:"valley",id:v.id}))}
   const seen=new Set();return out.filter(b=>{const k=bKey(b);if(seen.has(k))return false;seen.add(k);return true});
@@ -1745,6 +1748,7 @@ function canSeePost(p){
   if(p.by===S.user) return true;
   if(p.evId){const e=S.events.find(x=>x.id===p.evId);if(e&&e.vis==="members"){const l=byNum(e.n);if(!l||!canSeePrivate(l)) return false}}
   if(p.board.t==="gl") return true;
+  if(p.board.t==="group"){const g=gById(p.board.id);return !!g&&(grpMine(g)||grpManage(g))}
   if(p.board.t==="orient"||p.board.t==="valley"||p.board.t==="abody"||p.board.t==="ent"){const id=boardEntId(p.board);const mp=myProfile();return ((S.bodyFollows||{})[S.user]||[]).map(entById).some(f=>f&&entChain(f).includes(id))||((mp&&mp.ents)||[]).some(x=>!x.pending&&entById(x.id)&&entChain(entById(x.id)).includes(id))}
   if(p.board.t==="lodge"){const l=byNum(p.board.id);return isMember(l)||following(l)}
   return me().district===p.board.id||myWorld().some(l=>l.d===p.board.id);
@@ -1781,7 +1785,7 @@ function evCard(p){
 }
 function postCard(p){
   const w=who(p.by);
-  const mine=p.by===S.user, canDel=mine||can("editAnyLodge")||(p.board.t==="lodge"&&canEdit(byNum(p.board.id)));
+  const mine=p.by===S.user, canDel=mine||can("editAnyLodge")||(p.board.t==="group"&&canManageScope("g:"+p.board.id))||(p.board.t==="lodge"&&canEdit(byNum(p.board.id)));
   const cms=p.comments||[],open=!!(S.openCm&&S.openCm[p.id]);
   return `<article class="panel pad" style="display:grid;gap:8px">
     <div style="display:flex;gap:10px;align-items:center">${w.av}
@@ -1798,6 +1802,7 @@ function feedDefaultKeys(){
   myWorld().forEach(l=>{if(l.gl)return;add("l:"+l.n)});
   const ds=new Set(myWorld().filter(l=>!l.gl&&l.d!=="Statewide").map(l=>l.d));if(me().district)ds.add(me().district);
   [...ds].sort((a,b)=>dRank(a)-dRank(b)||a.localeCompare(b)).forEach(d=>add("d:"+d));
+  myGroups().forEach(g=>add("g:"+g.id));
   add("gl");return ks;
 }
 function feedBar(){
@@ -1825,8 +1830,8 @@ function postExtras(p){
   return h}
 function feedTabs(){const a=S.tab==="cal"?"cal":S.feedTab==="groups"?"groups":"feed";
   return `<div class="seg" role="tablist" aria-label="Trestle Board sections" style="margin:0 0 4px">${[["feed","Trestle Board"],["cal","Calendar"],["groups","Groups"]].map(([k,l])=>`<button type="button" class="btn small ${a===k?"":"ghost"}" role="tab" aria-selected="${a===k}" data-act="feed-tab" data-k="${k}">${l}</button>`).join(" ")}</div>`}
-const scopeName=k=>{if(!k)return "Personal";if(k==="gl")return "Grand Lodge";if(k[0]==="l"){const l=byNum(+k.slice(2));return l?lname(l):k}if(k[0]==="e"){const e=entById(k.slice(2));return e?bodyTitle(e):k}if(k[0]==="d")return "District "+k.slice(2);return k};
-const scopeLink=k=>{if(!k)return "Personal";if(k[0]==="l"&&byNum(+k.slice(2)))return `<button type="button" class="linkbtn" data-lodge-open="${k.slice(2)}">${esc(scopeName(k))}</button>`;if(k[0]==="e"&&entById(k.slice(2)))return `<button type="button" class="linkbtn" data-act="ent-open" data-bid="${esc(k.slice(2))}">${esc(scopeName(k))}</button>`;return esc(scopeName(k))};
+const scopeName=k=>{if(!k)return "Personal";if(k==="gl")return "Grand Lodge";if(k[0]==="l"){const l=byNum(+k.slice(2));return l?lname(l):k}if(k[0]==="e"){const e=entById(k.slice(2));return e?bodyTitle(e):k}if(k[0]==="d")return "District "+k.slice(2);if(k.startsWith("g:")){const g=gById(k.slice(2));return g?g.name:"Trestle Board"}return k};
+const scopeLink=k=>{if(!k)return "Personal";if(k[0]==="l"&&byNum(+k.slice(2)))return `<button type="button" class="linkbtn" data-lodge-open="${k.slice(2)}">${esc(scopeName(k))}</button>`;if(k[0]==="e"&&entById(k.slice(2)))return `<button type="button" class="linkbtn" data-act="ent-open" data-bid="${esc(k.slice(2))}">${esc(scopeName(k))}</button>`;if(k.startsWith("g:")&&gById(k.slice(2)))return `<button type="button" class="linkbtn" data-act="group-open" data-id="${esc(k.slice(2))}">${esc(scopeName(k))}</button>`;return esc(scopeName(k))};
 function myScopes(){
   if(!signedIn()||!meP())return [];const out=[];
   myLodges().filter(n=>n!==0).forEach(n=>{if(canManagePos("l:"+n))out.push("l:"+n)});
@@ -1836,6 +1841,42 @@ function myScopes(){
   if(can("postGrandLodge"))out.push("gl");
   return out}
 const grpAdmin=g=>(g.admins||[]).includes(meP());
+const grpManage=g=>canManageScope("g:"+g.id);
+const gById=id=>(S.groups||[]).find(x=>x.id===id);
+const gKids=k=>(S.groups||[]).filter(g=>(g.scope||"")===k);
+function gChain(g){const o=[];let x=g,n=0;while(x&&n++<60){o.unshift(x);x=x.scope&&x.scope.startsWith("g:")?gById(x.scope.slice(2)):null}return o}
+function gDesc(g){const o=[];const walk=id=>gKids("g:"+id).forEach(c=>{o.push(c);walk(c.id)});walk(g.id);return o}
+function canManageScope(k){
+  if(!signedIn()||!k)return false;
+  if(k==="gl")return can("postGrandLodge")||can("editAnyLodge");
+  if(k.startsWith("l:")){const l=byNum(+k.slice(2));return !!l&&(l.gl?can("postGrandLodge")||can("editAnyLodge"):canEdit(l))}
+  if(k.startsWith("d:"))return can("editAnyLodge")||(can("postDistrict")&&me().district===k.slice(2));
+  if(k.startsWith("e:"))return canManagePos(k)||can("editAnyLodge");
+  if(k.startsWith("g:")){const g=gById(k.slice(2));return !!g&&(grpAdmin(g)||canManageScope(g.scope))}
+  return false}
+function subgroupList(k){
+  if(!signedIn())return "";const gs=gKids(k);if(!gs.length)return "";
+  return `<div class="section"><h3 class="sub">Trestle Boards under ${esc(scopeName(k))}</h3><div class="cards">${gs.map(g=>{const n=gKids("g:"+g.id).length;return `<button type="button" class="card" data-act="group-open" data-id="${esc(g.id)}"><span class="t">${esc(g.name)}</span><span class="isub">${g.members.length} ${g.members.length===1?"member":"members"}${n?` · ${n} more under it`:""}${g.desc?" · "+esc(g.desc):""}</span>${grpMine(g)?`<span><span class="chip mem">You are on this one</span></span>`:""}</button>`}).join("")}</div></div>`}
+function subgroupManager(k){
+  if(!canManageScope(k))return "";
+  return `<div class="section"><h3 class="sub">Build a new Trestle Board</h3><p class="hint" style="margin:0 0 10px">It sits directly under ${esc(scopeName(k))}. Give it a name, like Finance Committee or Barbecue Fundraiser Committee. It gets its own Trestle Board, you choose who is on it, and it can have Trestle Boards under it too.</p><form class="inline-form" data-newgrp="${esc(k)}"><label>Name<input type="text" name="name" maxlength="80" placeholder="e.g. Finance Committee"></label><label>What it's for (optional)<input type="text" name="desc" maxlength="160"></label><button class="btn small" type="submit">Build Trestle Board</button></form>${gKids(k).length?`<h4 class="sub" style="margin:14px 0 6px">Trestle Boards directly under ${esc(scopeName(k))}</h4><ul class="resume">${gKids(k).map(g=>{const n=gDesc(g).length;return `<li style="display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap"><span><button type="button" class="linkbtn" data-act="group-open" data-id="${esc(g.id)}">${esc(g.name)}</button> <span class="isub">${g.members.length} ${g.members.length===1?"member":"members"}${n?` · ${n} more under it`:""}</span></span>${UI.rmGrp===g.id?`<span style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><span class="hint">Remove it${n?" and everything under it":""}, with its posts?</span><button class="btn small" type="button" data-act="group-del" data-id="${esc(g.id)}">Yes, remove</button><button class="btn ghost small" type="button" data-act="group-del-no">Keep</button></span>`:`<button class="btn ghost small" type="button" data-act="group-del-ask" data-id="${esc(g.id)}">Remove</button>`}</li>`}).join("")}</ul>`:""}</div>`}
+function mngBlock(k){
+  if(!canManageScope(k))return "";
+  return `<div class="actions" style="margin:8px 0 0"><button class="btn ghost small" type="button" data-act="mng-toggle" data-k="${esc(k)}">${UI.mng===k?"Close editing":"Edit and build Trestle Boards"}</button></div>${UI.mng===k?subgroupManager(k):""}`}
+function groupCrumbs(g){
+  const ch=gChain(g),r=ch[0].scope,out=[];
+  if(r)out.push({l:scopeName(r),a:"scope-open",d:["k",r]});
+  ch.slice(0,-1).forEach(x=>out.push({l:x.name,a:"group-open",d:["id",x.id]}));
+  out.push({l:g.name});return crumbs(out)}
+function groupPage(g){
+  const root=gChain(g)[0].scope,par=g.scope,mine=grpMine(g),mng=grpManage(g);
+  const ps=S.posts.filter(p=>p.board.t==="group"&&p.board.id===g.id&&canSeePost(p)).sort((x,y)=>y.at.localeCompare(x.at)).slice(0,3);
+  const canPost=boardsICanPost().some(b=>bKey(b)==="g:"+g.id);
+  const seeRoster=mine||mng;
+  return `${groupCrumbs(g)}<div class="panel detail"><div class="eyebrow">Trestle Board under ${esc(scopeName(par))}</div><h2 class="title">${esc(g.name)}</h2>${g.desc?`<p class="hint" style="margin:0 0 8px">${esc(g.desc)}</p>`:""}
+  <div class="section"><h3 class="sub">Trestle Board</h3>${!seeRoster?`<p class="locked">🔒 Only people on this Trestle Board can see its posts.</p>`:ps.length?`<div class="stack" style="padding:0;gap:10px">${ps.map(postCard).join("")}</div>`:`<p class="hint">Nothing posted here yet. Posts here go to the people on this Trestle Board and show up on their own main Trestle Board.</p>`}${seeRoster?`<div class="actions" style="margin-top:10px"><button class="btn ghost small" type="button" data-act="group-board" data-id="${esc(g.id)}">Open ${esc(g.name)} Trestle Board</button></div>${canPost?"":`<p class="hint" style="margin:8px 0 0">Add yourself to this Trestle Board to post.</p>`}`:""}</div>
+  ${subgroupList("g:"+g.id)}
+  </div>${groupCard(g)}`}
 const grpMine=g=>g.members.includes(meP());
 function migrateGroups(){(S.groups||[]).forEach(g=>{if(!g.admins)g.admins=[g.members[g.members.length-1]].filter(Boolean);if(!g.requests)g.requests=[];if(g.scope===undefined)g.scope=""})}
 function myGroups(){
@@ -1843,28 +1884,30 @@ function myGroups(){
   return (S.groups||[]).filter(g=>grpMine(g))}
 const pname=id=>(S.profiles[id]&&S.profiles[id].name)||"Member";
 function groupCard(g){
-  const adm=grpAdmin(g),open=UI.grpOpen===g.id;
+  const adm=grpManage(g),open=UI.grpOpen===g.id;
   const memRows=g.members.slice().sort((a,b)=>pname(a).localeCompare(pname(b))).map(id=>`<li style="display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap"><span><button type="button" class="linkbtn" data-person="${id}">${esc(pname(id))}</button>${(g.admins||[]).includes(id)?` <span class="chip acc">Admin</span>`:""}${S.profiles[id]&&S.profiles[id].sample?` <span class="chip pilot">Test</span>`:""}</span>${adm?`<span style="display:flex;gap:6px"><button class="btn ghost small" type="button" data-act="grp-admin" data-id="${esc(g.id)}" data-pid="${id}">${(g.admins||[]).includes(id)?"Remove admin":"Make admin"}</button>${id===meP()?"":`<button class="btn ghost small" type="button" data-act="grp-remove" data-id="${esc(g.id)}" data-pid="${id}">Remove</button>`}</span>`:""}</li>`).join("");
   const reqs=(g.requests||[]).map(id=>`<li style="display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap"><span>${esc(pname(id))} wants to join</span><span style="display:flex;gap:6px"><button class="btn small" type="button" data-act="grp-approve" data-id="${esc(g.id)}" data-pid="${id}">Approve</button><button class="btn ghost small" type="button" data-act="grp-deny" data-id="${esc(g.id)}" data-pid="${id}">Decline</button></span></li>`).join("");
   const cand=Object.keys(S.profiles).filter(id=>!g.members.includes(id)).sort((a,b)=>pname(a).localeCompare(pname(b)));
-  return `<div class="panel pad" style="display:grid;gap:8px"><div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap"><div><b>${esc(g.name)}</b> <span class="chip">${g.scope?"":"Personal"}${g.scope?scopeLink(g.scope):""}</span>${adm?` <span class="chip acc">You manage this</span>`:""}${adm&&(g.requests||[]).length?` <span class="chip pilot">${g.requests.length} request${g.requests.length>1?"s":""}</span>`:""}
+  return `<div class="panel pad" style="display:grid;gap:8px"><div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap"><div><b>${esc(g.name)}</b> <span class="chip">${g.scope?"Under ":"Personal"}${g.scope?scopeLink(g.scope):""}</span>${adm?` <span class="chip acc">You manage this</span>`:""}${adm&&(g.requests||[]).length?` <span class="chip pilot">${g.requests.length} request${g.requests.length>1?"s":""}</span>`:""}
     <div class="isub">${g.members.length} ${g.members.length===1?"member":"members"}${g.desc?" · "+esc(g.desc):""}</div></div>
-    <div class="actions" style="margin:0"><button class="btn small" type="button" data-act="group-msg" data-id="${esc(g.id)}">Message group</button>${adm?`<button class="btn ghost small" type="button" data-act="grp-manage" data-id="${esc(g.id)}">${open?"Close":"Manage"}</button>`:""}<button class="btn ghost small" type="button" data-act="grp-leave" data-id="${esc(g.id)}">Leave</button></div></div>
+    <div class="actions" style="margin:0"><button class="btn small" type="button" data-act="group-open" data-id="${esc(g.id)}">Open</button><button class="btn ghost small" type="button" data-act="group-msg" data-id="${esc(g.id)}">Message group</button>${adm?`<button class="btn ghost small" type="button" data-act="grp-manage" data-id="${esc(g.id)}">${open?"Close":"Manage"}</button>`:""}<button class="btn ghost small" type="button" data-act="grp-leave" data-id="${esc(g.id)}">Leave</button></div></div>
     ${open?`<div style="display:grid;gap:10px;border-top:1px solid var(--line);padding-top:10px">
       ${reqs?`<div><span class="eyebrow" style="margin:0">Requests</span><ul class="resume">${reqs}</ul></div>`:""}
       <form class="inline-form" data-grpadd="${esc(g.id)}"><label>Add a member<input type="text" name="who" list="grp-ppl-${esc(g.id)}" autocomplete="off" placeholder="Start typing a name, then pick it"><datalist id="grp-ppl-${esc(g.id)}">${cand.map(id=>`<option value="${esc(pname(id))}"></option>`).join("")}</datalist></label><button class="btn small" type="submit">Add</button></form>
       <div><span class="eyebrow" style="margin:0">Members</span><ul class="resume">${memRows}</ul></div>
-      <div><button class="btn ghost small" type="button" data-act="group-del" data-id="${esc(g.id)}">Delete this group</button></div></div>`
+      ${subgroupManager("g:"+g.id)}
+      <div>${UI.rmGrp===g.id?`<span class="hint">Remove this Trestle Board${gKids("g:"+g.id).length?" and everything under it":""}, with its posts? </span><button class="btn small" type="button" data-act="group-del" data-id="${esc(g.id)}">Yes, remove</button> <button class="btn ghost small" type="button" data-act="group-del-no">Keep</button>`:`<button class="btn ghost small" type="button" data-act="group-del-ask" data-id="${esc(g.id)}">Remove this Trestle Board</button>`}</div></div>`
     :`<div class="isub">${g.members.slice(0,6).map(id=>esc(pname(id))).join(", ")}${g.members.length>6?` and ${g.members.length-6} more`:""}</div>`}</div>`}
 function groupsView(){
   migrateGroups();
+  if(S.grpPage&&gById(S.grpPage))return `<div class="stack" style="max-width:680px">${groupPage(gById(S.grpPage))}</div>`;
   const gs=myGroups(),q=(UI.gq||"").trim().toLowerCase(),sc=myScopes(),me_=meP();
   const find=(S.groups||[]).filter(g=>!grpMine(g)&&(!q||(g.name+" "+scopeName(g.scope)+" "+(g.desc||"")).toLowerCase().includes(q)));
-  return `<div class="stack" style="max-width:680px"><div><h2 class="title" style="margin:0 0 6px">Groups</h2><p class="hint" style="margin:0">Your groups, and groups you have been added to. A group's admins add and remove its people. You can leave any group, or search for one and ask to join.</p></div>
+  return `<div class="stack" style="max-width:680px"><div><h2 class="title" style="margin:0 0 6px">Groups and committees</h2><p class="hint" style="margin:0">Trestle Boards you are on, and ones you have been added to. A group's admins add and remove its people. You can leave any group, or search for one and ask to join.</p></div>
   ${gs.length?gs.map(groupCard).join(""):`<div class="panel empty"><b>One Texas. One Trestle Board.</b> You are not in any groups yet. Search below to ask to join one${sc.length?", or start one for a lodge, body or district you manage":""}.</div>`}
   ${me_?`<div class="panel pad" style="display:grid;gap:8px"><b>Find a group</b><input type="text" id="gq" placeholder="Search by group name, lodge, body or district" value="${esc(UI.gq||"")}" aria-label="Search groups">
     ${find.length?find.slice(0,20).map(g=>`<div style="display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:8px"><span><b>${esc(g.name)}</b> <span class="chip">${scopeLink(g.scope)}</span><br><span class="isub">${g.members.length} ${g.members.length===1?"member":"members"}${g.desc?" · "+esc(g.desc):""}</span></span>${(g.requests||[]).includes(me_)?`<span style="display:flex;gap:6px;align-items:center"><span class="chip pilot">Requested</span><button class="btn ghost small" type="button" data-act="grp-req-cancel" data-id="${esc(g.id)}">Cancel</button></span>`:`<button class="btn small" type="button" data-act="grp-req" data-id="${esc(g.id)}">Request to join</button>`}</div>`).join(""):`<p class="hint" style="margin:0">${q?"No groups match that search.":"No other groups yet."}</p>`}</div>`:""}
-  ${sc.length?`<form class="panel pad" id="groupform" style="display:grid;gap:10px"><b>Start a group</b><p class="hint" style="margin:0">Groups belong to a lodge, body or district you manage. You become its admin and add the people.</p><select id="group-scope" aria-label="Group belongs to">${sc.map(k=>`<option value="${esc(k)}">${esc(scopeName(k))}</option>`).join("")}</select><input type="text" id="group-name" placeholder="Group name, e.g. Degree team" aria-label="Group name"><input type="text" id="group-desc" placeholder="What it's for (optional)" aria-label="Description"><button class="btn small" type="submit" style="justify-self:start">Create group</button></form>`:`<p class="hint">Only people who manage a lodge, body or district can start a group there.</p>`}</div>`}
+  <p class="hint">To build a new Trestle Board, open the lodge, district, body or Trestle Board you want it under and use its edit page.</p></div>`}
 function feedView(){
   if(S.feedTab==="groups"&&signedIn()) return `<div class="stack" style="max-width:680px">${feedTabs()}</div>`+groupsView();
   const pr=myProfile();
@@ -1875,28 +1918,29 @@ function feedView(){
   const atL=S.feedFilter.startsWith("at:")?byNum(+S.feedFilter.slice(3)):null;
   const atB=S.feedFilter.startsWith("ab:")?entById(S.feedFilter.slice(3)):null;
   const atD=S.feedFilter.startsWith("ad:")?S.feedFilter.slice(3):null;
-  if(S.feedFilter!=="all"&&!atL&&!atB&&!atD) S.feedFilter="all";
-  if(S.postToFor!==S.feedFilter){S.postToFor=S.feedFilter;const fk=atL?(atL.n===0?"gl":"l:"+atL.n):atD?"d:"+atD:atB?entBoardKey(atB):"";if(fk&&can_.some(b=>bKey(b)===fk))S.postTo=fk}
-  const shown=atD?visible.filter(p=>p.board.t==="district"&&p.board.id===atD):atB?visible.filter(p=>postReachesEnt(p,atB)):atL?visible.filter(p=>postReachesLodge(p,atL)):S.feedBoards?visible.filter(p=>S.feedBoards.includes(bKey(p.board))):visible;
+  const atG=S.feedFilter.startsWith("ag:")?gById(S.feedFilter.slice(3)):null;
+  if(S.feedFilter!=="all"&&!atL&&!atB&&!atD&&!atG) S.feedFilter="all";
+  if(S.postToFor!==S.feedFilter){S.postToFor=S.feedFilter;const fk=atG?"g:"+atG.id:atL?(atL.n===0?"gl":"l:"+atL.n):atD?"d:"+atD:atB?entBoardKey(atB):"";if(fk&&can_.some(b=>bKey(b)===fk))S.postTo=fk}
+  const shown=atG?visible.filter(p=>p.board.t==="group"&&p.board.id===atG.id):atD?visible.filter(p=>p.board.t==="district"&&p.board.id===atD):atB?visible.filter(p=>postReachesEnt(p,atB)):atL?visible.filter(p=>postReachesLodge(p,atL)):S.feedBoards?visible.filter(p=>S.feedBoards.includes(bKey(p.board))):visible;
   const grp=(t,label)=>{const g=can_.filter(b=>b.t===t);return g.length?`<optgroup label="${label}">${g.map(b=>`<option value="${bKey(b)}" ${bKey(b)===S.postTo?"selected":""}>${esc(bName(b))}</option>`).join("")}</optgroup>`:""};
   return `<div class="stack" style="max-width:680px">
     ${feedTabs()}
     ${!(S.welcomed||{})[S.user]?`<div class="panel pad welcome"><div class="eyebrow">Welcome</div><h3 class="title" style="margin:2px 0 4px">One Texas. One Trestle Board.</h3><p class="hint" style="margin:0 0 10px">One simple place for your lodge, your district and every Texas Mason to stay in touch: posts, events, groups, messages and the Laws, all in one spot.</p><button class="btn small" type="button" data-act="welcome-ok">Got it</button></div>`:""}
     ${L.some(canEdit)&&UI.adding!=="cal"?`<div class="actions" style="margin:0"><button class="btn ghost small" type="button" data-act="add-ev-feed">Add an event</button></div>`:""}${UI.adding==="cal"?eventForm(null):""}
-    <div><h2 class="title" style="margin:0 0 6px">${atD?"District "+esc(atD)+" Trestle Board":atB?esc(atB.name)+" Trestle Board":atL?esc(lname(atL))+" Trestle Board":"Trestle Board"}</h2>
-      <p class="hint" style="margin:0">${atD?`Posts to District ${esc(atD)}, seen by every lodge in the district. <button class="linkbtn" type="button" data-act="feed-all">Show all my boards</button>`:atB?`Posts to this ${atB.lvl==="orient"?"Scottish Rite board":atB.lvl==="valley"?"Valley and the Texas Scottish Rite":atB.lvl==="body"?"body, its Valley and the Texas Scottish Rite":"body, seen by its members and followers"}. <button class="linkbtn" type="button" data-act="feed-all">Show all my boards</button>`:atL?`Posts to this ${atL.gl?"board":"lodge, District "+esc(atL.d)+","} and the Grand Lodge. <button class="linkbtn" type="button" data-act="feed-all">Show all my boards</button>`:"Posts from your lodges, the lodges you follow, your district, and the Grand Lodge."}</p></div>
+    <div><h2 class="title" style="margin:0 0 6px">${atG?esc(atG.name)+" Trestle Board":atD?"District "+esc(atD)+" Trestle Board":atB?esc(atB.name)+" Trestle Board":atL?esc(lname(atL))+" Trestle Board":"Trestle Board"}</h2>
+      <p class="hint" style="margin:0">${atG?`Posts to this Trestle Board go to its people and show on their own main Trestle Board. <button class="linkbtn" type="button" data-act="group-open" data-id="${esc(atG.id)}">About this Trestle Board</button> · <button class="linkbtn" type="button" data-act="feed-all">Show all my boards</button>`:atD?`Posts to District ${esc(atD)}, seen by every lodge in the district. <button class="linkbtn" type="button" data-act="feed-all">Show all my boards</button>`:atB?`Posts to this ${atB.lvl==="orient"?"Scottish Rite board":atB.lvl==="valley"?"Valley and the Texas Scottish Rite":atB.lvl==="body"?"body, its Valley and the Texas Scottish Rite":"body, seen by its members and followers"}. <button class="linkbtn" type="button" data-act="feed-all">Show all my boards</button>`:atL?`Posts to this ${atL.gl?"board":"lodge, District "+esc(atL.d)+","} and the Grand Lodge. <button class="linkbtn" type="button" data-act="feed-all">Show all my boards</button>`:"Posts from your lodges, the lodges you follow, your district, and the Grand Lodge."}</p></div>
     ${can_.length?`<form class="panel pad" id="postform" style="display:grid;gap:10px">
       <div style="display:flex;gap:10px;align-items:flex-start"><span class="avatar">${pr?initials(pr.name):"SA"}</span>
         <textarea id="post-text" rows="3" style="flex:1" placeholder="Share something with the brethren..." aria-label="Post text"></textarea></div>
       <div id="post-attach" style="display:grid;gap:8px">${attachHtml()}</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap"><label class="btn ghost small" style="cursor:pointer">📷 Photo<input type="file" id="post-photos" accept="image/*" multiple hidden></label><label class="btn ghost small" style="cursor:pointer">📎 File<input type="file" id="post-files" accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.csv" hidden></label><button class="btn ghost small" type="button" data-act="poll-on">📊 Poll</button></div>
       <div class="actions" style="margin:0;justify-content:space-between">
-        ${(atL||atB||atD)&&S.postToFor===S.feedFilter&&S.postTo&&can_.some(b=>bKey(b)===S.postTo)&&(()=>{const f=atL?(atL.n===0?"gl":"l:"+atL.n):atD?"d:"+atD:atB?entBoardKey(atB):"";return f===S.postTo})()?`<span class="hint">Posting to <b>${esc(bName(bFromKey(S.postTo)))}</b></span><input type="hidden" id="post-to" value="${esc(S.postTo)}">`:`<label class="hint" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">Post to
-          <select id="post-to" aria-label="Post to">${grp("lodge","My lodges")}${grp("district","District")}${grp("gl","Grand Lodge")}${grp("orient","Texas Scottish Rite")}${grp("valley","Scottish Rite Valleys")}${grp("abody","Scottish Rite bodies")}${grp("ent","York Rite and Shrine")}</select></label>`}
+        ${(atL||atB||atD||atG)&&S.postToFor===S.feedFilter&&S.postTo&&can_.some(b=>bKey(b)===S.postTo)&&(()=>{const f=atG?"g:"+atG.id:atL?(atL.n===0?"gl":"l:"+atL.n):atD?"d:"+atD:atB?entBoardKey(atB):"";return f===S.postTo})()?`<span class="hint">Posting to <b>${esc(bName(bFromKey(S.postTo)))}</b></span><input type="hidden" id="post-to" value="${esc(S.postTo)}">`:`<label class="hint" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">Post to
+          <select id="post-to" aria-label="Post to">${grp("lodge","My lodges")}${grp("district","District")}${grp("gl","Grand Lodge")}${grp("orient","Texas Scottish Rite")}${grp("valley","Scottish Rite Valleys")}${grp("abody","Scottish Rite bodies")}${grp("ent","York Rite and Shrine")}${grp("group","Committees and groups")}</select></label>`}
         <button class="btn small" type="submit">Post</button></div>
       <p class="hint" style="margin:0" id="post-reach">Reaches: ${esc(bReach(bFromKey(S.postTo)))}.</p>
     </form>`:`<div class="panel pad hint">You can read the boards you follow, but there's no board you can post to yet.</div>`}
-    ${atL||atB||atD?"":feedBar()}
+    ${atL||atB||atD||atG?"":feedBar()}
     ${shown.length?shown.map(postCard).join(""):`<div class="panel empty">${S.feedBoards&&!atL?"No posts on the boards you have turned on.":"No posts yet. Be the first to post to your lodge's Trestle Board. <b>One Texas. One Trestle Board.</b>"}</div>`}
   </div>`;
 }
@@ -1984,6 +2028,17 @@ document.addEventListener("click",e=>{
   switch(t.dataset.act){
     case "sr-toggle":{const o=S.srOpen||(S.srOpen={});o[t.dataset.bid]=!o[t.dataset.bid];if(!o[t.dataset.bid]&&t.dataset.bid==="sr-texas"){}render();break}
     case "body-sel":{const e=entById(t.dataset.bid);if(String(t.dataset.bid).startsWith("city:"))(S.cityOpen||(S.cityOpen={}))[t.dataset.bid.slice(5)]=true;if(e&&e.lvl){const o=S.srOpen||(S.srOpen={});entChain(e).slice(1).forEach(i=>o[i]=true);if(e.lvl!=="body")o[e.id]=true}}S.bodySel=t.dataset.bid;S.bodyOpen=true;render();scrollTo(0,0);break;
+    case "group-open":{const g=gById(t.dataset.id);if(!g)break;S.tab="feed";S.feedTab="groups";S.grpPage=g.id;UI={editing:false,editProfile:false,adding:null,confirmDel:null,grpOpen:null};render();scrollTo(0,0);break}
+    case "group-board":{const g=gById(t.dataset.id);if(!g)break;S.feedFilter="ag:"+g.id;if(boardsICanPost().some(b=>bKey(b)==="g:"+g.id))S.postTo="g:"+g.id;S.tab="feed";S.feedTab="feed";UI.editing=false;render();scrollTo(0,0);break}
+    case "group-del-ask":UI.rmGrp=t.dataset.id;render();break;
+    case "group-del-no":UI.rmGrp=null;render();break;
+    case "mng-toggle":UI.mng=UI.mng===t.dataset.k?null:t.dataset.k;render();break;
+    case "scope-open":{const k=t.dataset.k;
+      if(k==="gl")openLodge(0);else if(k.startsWith("l:"))openLodge(+k.slice(2));
+      else if(k.startsWith("d:")){S.tab="dir";S.dirFind=true;S.dirOpen=false;S.distPage=k.slice(2);UI={editing:false,editProfile:false,adding:null,confirmDel:null};render();scrollTo(0,0)}
+      else if(k.startsWith("e:")){const b=entById(k.slice(2));if(!b)break;if(b.t==="York Rite")(S.cityOpen||(S.cityOpen={}))[cityOf(b)]=true;S.tab="bodies";UI={editing:false,editProfile:false,adding:null,confirmDel:null};if(b.lvl){const o=S.srOpen||(S.srOpen={});entChain(b).slice(1).forEach(i=>o[i]=true)}S.bodyT=b.t;S.bodyK="";S.bodyQ="";S.bodySel=b.id;S.bodyOpen=true;render();scrollTo(0,0)}
+      else if(k.startsWith("g:")&&gById(k.slice(2))){S.tab="feed";S.feedTab="groups";S.grpPage=k.slice(2);render();scrollTo(0,0)}
+      break}
     case "ent-open":{const b=entById(t.dataset.bid);if(!b)break;if(b.t==="York Rite")(S.cityOpen||(S.cityOpen={}))[cityOf(b)]=true;S.tab="bodies";UI={editing:false,editProfile:false,adding:null,confirmDel:null};if(b.lvl){const o=S.srOpen||(S.srOpen={});entChain(b).slice(1).forEach(i=>o[i]=true)}S.bodyT=b.t;S.bodyK="";S.bodyQ="";S.bodySel=b.id;S.bodyOpen=true;render();scrollTo(0,0);break}
     case "dist-toggle":{const o=S.distOpen||(S.distOpen={});o[t.dataset.d]=!o[t.dataset.d];render();break}
     case "city-toggle":{const o=S.cityOpen||(S.cityOpen={});o[t.dataset.city]=!o[t.dataset.city];render();break}
@@ -2063,21 +2118,21 @@ document.addEventListener("click",e=>{
     case "drills-back":if(S.drillSlug){S.drillSlug=null}else{S.tab="res"}render();scrollTo(0,0);break
     case "mentor-rm":S.mentor=ensureMentor().filter(x=>x.id!==t.dataset.id);render();break
     case "mem-list":S.personOpen=false;UI.editProfile=false;render();scrollTo(0,0);break;
-    case "feed-tab":if(t.dataset.k==="cal"){S.tab="cal"}else{S.tab="feed";S.feedTab=t.dataset.k}UI={editing:false,editProfile:false,adding:null,confirmDel:null};render();break;
+    case "feed-tab":if(t.dataset.k==="cal"){S.tab="cal"}else{S.tab="feed";S.feedTab=t.dataset.k}S.grpPage=null;UI={editing:false,editProfile:false,adding:null,confirmDel:null};render();break;
     case "add-ev-feed":UI.adding="cal";render();document.getElementById("ev-title")?.focus();break;
     case "post-from-cal":S.tab="feed";S.feedTab="feed";S.feedFilter="all";UI.adding=null;render();document.getElementById("post-text")?.focus();scrollTo(0,0);break;
     case "group-msg":{const g=myGroups().find(x=>x.id===t.dataset.id);if(!g)break;S.newMsg=true;S.newTo=g.members.filter(x=>x!==meP());S.msgGroup=g.name;S.msgFirst="";S.msgQ="";S.tab="messages";render();scrollTo(0,0);break}
-    case "group-del":{const g=(S.groups||[]).find(x=>x.id===t.dataset.id);if(!g||!grpAdmin(g))break;S.groups=S.groups.filter(x=>x.id!==g.id);UI.grpOpen=null;toast("Group deleted");render();break}
+    case "group-del":{const g=(S.groups||[]).find(x=>x.id===t.dataset.id);if(!g||!grpManage(g))break;const gone=new Set([g.id,...gDesc(g).map(x=>x.id)]);S.groups=S.groups.filter(x=>!gone.has(x.id));S.posts=S.posts.filter(p=>!(p.board.t==="group"&&gone.has(p.board.id)));if(S.feedFilter.startsWith("ag:")&&gone.has(S.feedFilter.slice(3)))S.feedFilter="all";UI.rmGrp=null;toast("Removed "+g.name);S.grpPage=(g.scope&&g.scope.startsWith("g:")&&gById(g.scope.slice(2)))?g.scope.slice(2):null;UI.grpOpen=null;toast("Group deleted");render();break}
     case "grp-manage":UI.grpOpen=UI.grpOpen===t.dataset.id?null:t.dataset.id;render();break;
     case "grp-leave":{const g=(S.groups||[]).find(x=>x.id===t.dataset.id);if(!g)break;const me_=meP();g.members=g.members.filter(x=>x!==me_);g.admins=(g.admins||[]).filter(x=>x!==me_);
       if(!g.members.length)S.groups=S.groups.filter(x=>x.id!==g.id);else if(!g.admins.length)g.admins=[g.members[0]];toast("You left "+g.name);render();break}
-    case "grp-remove":{const g=(S.groups||[]).find(x=>x.id===t.dataset.id);if(!g||!grpAdmin(g))break;const id=t.dataset.pid;if(id===meP())break;g.members=g.members.filter(x=>x!==id);g.admins=(g.admins||[]).filter(x=>x!==id);toast("Removed");render();break}
-    case "grp-admin":{const g=(S.groups||[]).find(x=>x.id===t.dataset.id);if(!g||!grpAdmin(g))break;const id=t.dataset.pid;
+    case "grp-remove":{const g=(S.groups||[]).find(x=>x.id===t.dataset.id);if(!g||!grpManage(g))break;const id=t.dataset.pid;if(id===meP())break;g.members=g.members.filter(x=>x!==id);g.admins=(g.admins||[]).filter(x=>x!==id);toast("Removed");render();break}
+    case "grp-admin":{const g=(S.groups||[]).find(x=>x.id===t.dataset.id);if(!g||!grpManage(g))break;const id=t.dataset.pid;
       if(g.admins.includes(id)){if(g.admins.length<2){toast("A group needs at least one admin");break}g.admins=g.admins.filter(x=>x!==id)}else g.admins.push(id);render();break}
     case "grp-req":{const g=(S.groups||[]).find(x=>x.id===t.dataset.id);if(!g||!meP()||grpMine(g))break;g.requests=g.requests||[];if(!g.requests.includes(meP()))g.requests.push(meP());toast("Request sent to the group's admins");render();break}
     case "grp-req-cancel":{const g=(S.groups||[]).find(x=>x.id===t.dataset.id);if(!g)break;g.requests=(g.requests||[]).filter(x=>x!==meP());render();break}
-    case "grp-approve":{const g=(S.groups||[]).find(x=>x.id===t.dataset.id);if(!g||!grpAdmin(g))break;const id=t.dataset.pid;g.requests=(g.requests||[]).filter(x=>x!==id);if(!g.members.includes(id))g.members.push(id);toast(pname(id)+" added");render();break}
-    case "grp-deny":{const g=(S.groups||[]).find(x=>x.id===t.dataset.id);if(!g||!grpAdmin(g))break;g.requests=(g.requests||[]).filter(x=>x!==t.dataset.pid);render();break}
+    case "grp-approve":{const g=(S.groups||[]).find(x=>x.id===t.dataset.id);if(!g||!grpManage(g))break;const id=t.dataset.pid;g.requests=(g.requests||[]).filter(x=>x!==id);if(!g.members.includes(id))g.members.push(id);toast(pname(id)+" added");render();break}
+    case "grp-deny":{const g=(S.groups||[]).find(x=>x.id===t.dataset.id);if(!g||!grpManage(g))break;g.requests=(g.requests||[]).filter(x=>x!==t.dataset.pid);render();break}
     case "feed-reset":S.feedBoards=null;render();break;
     case "del-post":S.posts=S.posts.filter(p=>p.id!==t.dataset.id);toast("Post deleted");render();break;
     case "res":toast(`${t.dataset.res} is planned`);break;
@@ -2153,10 +2208,15 @@ document.addEventListener("submit",e=>{
     const hits=dupHits(nm,em,l.n,null,null);
     if(hits.length){UI.addWarn={nm,em,dg,dt,lodge:l.n,hits};render();return}
     UI.addWarn=null;createMember(l,nm,em,dg,dt);toast(`${nm} added. Invitation emails go out once the site is live.`);render();return}
+  if(f.dataset.newgrp){const k=f.dataset.newgrp;if(!canManageScope(k)){toast("You can't build a Trestle Board there");return}
+    const fd=new FormData(f),nm=(fd.get("name")||"").trim(),ds=(fd.get("desc")||"").trim();if(!nm){toast("Name the Trestle Board first");return}
+    if(gKids(k).some(x=>x.name.toLowerCase()===nm.toLowerCase())){toast("There is already one with that name here");return}
+    S.groups=S.groups||[];const id="g"+Date.now().toString(36)+Math.random().toString(36).slice(2,5),m=meP();S.groups.push({id,name:nm,desc:ds,scope:k,admins:m?[m]:[],members:m?[m]:[],requests:[]});
+    logIt(`built the Trestle Board ${nm}`);UI.mng=null;UI.editing=false;S.tab="feed";S.feedTab="groups";S.grpPage=id;UI.grpOpen=id;toast(`${nm} is built. Add its people under Manage.`);render();scrollTo(0,0);return}
   if(f.id==="groupform"){const nm=(document.getElementById("group-name").value||"").trim(),sc=document.getElementById("group-scope").value,ds=(document.getElementById("group-desc").value||"").trim();
     if(!nm){toast("Name the group first");return}if(!myScopes().includes(sc)){toast("You can't start a group there");return}
     S.groups=S.groups||[];const id="g"+Date.now().toString(36);S.groups.push({id,name:nm,desc:ds,scope:sc,admins:[meP()],members:[meP()],requests:[]});UI.grpOpen=id;logIt(`started the group ${nm}`);toast("Group created. Add its people under Manage.");render();return}
-  if(f.dataset.grpadd){const g=(S.groups||[]).find(x=>x.id===f.dataset.grpadd);if(!g||!grpAdmin(g))return;const nm=(new FormData(f).get("who")||"").trim().toLowerCase();
+  if(f.dataset.grpadd){const g=(S.groups||[]).find(x=>x.id===f.dataset.grpadd);if(!g||!grpManage(g))return;const nm=(new FormData(f).get("who")||"").trim().toLowerCase();
     const hit=Object.keys(S.profiles).filter(id=>pname(id).toLowerCase()===nm&&!g.members.includes(id));
     if(hit.length!==1){toast(hit.length?"More than one match. Use the full name from the list":"Pick a name from the list");return}
     g.members.push(hit[0]);toast(`${pname(hit[0])} added`);render();return}
