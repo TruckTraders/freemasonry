@@ -1,4 +1,8 @@
-<title>The Trestle Board</title>
+<title>The Trestle Board · One Texas. One Trestle Board.</title>
+<meta name="description" content="One Texas. One Trestle Board. One simple place for lodges, districts and Texas Masons to communicate.">
+<meta property="og:title" content="The Trestle Board">
+<meta property="og:description" content="One Texas. One Trestle Board.">
+<meta name="theme-color" content="#1b2a4a">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 34 34'%3E%3Crect width='34' height='34' rx='7' fill='%231b2a4a'/%3E%3Cg fill='none' stroke='%23d3a94f' stroke-width='1.9' stroke-linecap='round'%3E%3Cpath d='M17 5 L8 27'/%3E%3Cpath d='M17 5 L26 27'/%3E%3Ccircle cx='17' cy='5.5' r='1.7' fill='%23d3a94f'/%3E%3Cpath d='M6 20 L17 29 L28 20'/%3E%3C/g%3E%3C/svg%3E">
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -49,10 +53,20 @@ header.bar .brand{align-items:center;gap:14px}
 h2.title::before{content:"";display:inline-block;width:.85em;height:.85em;margin-right:.4em;vertical-align:-.08em;background:currentColor;color:var(--gold);-webkit-mask:var(--logo-mask) center/contain no-repeat;mask:var(--logo-mask) center/contain no-repeat}
 .empty::before,.panel.empty::before{content:"";display:block;width:38px;height:38px;margin:0 auto 8px;background:var(--gold);opacity:.55;-webkit-mask:var(--logo-mask) center/contain no-repeat;mask:var(--logo-mask) center/contain no-repeat}
 body::after{content:"";position:fixed;right:-60px;bottom:-60px;width:380px;height:380px;background:var(--gold);opacity:.045;pointer-events:none;z-index:0;-webkit-mask:var(--logo-mask) center/contain no-repeat;mask:var(--logo-mask) center/contain no-repeat}
+.brand .slogan{letter-spacing:.06em}
+.panel.welcome{border-color:var(--gold)}
+.hero{position:relative;overflow:hidden;border-radius:14px;margin:6px auto 18px;max-width:760px;min-height:260px;display:grid;place-items:center;background:radial-gradient(ellipse at center,#1b2a4a 0%,#0b1120 80%);color:#d3a94f;border:1px solid var(--line)}
+.hero-img{position:absolute;inset:0;background:var(--hero-img,none) center/cover no-repeat;opacity:.55}
+.hero::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(11,17,32,.25),rgba(11,17,32,.7))}
+.hero-in{position:relative;z-index:1;display:grid;justify-items:center;gap:10px;padding:28px 16px;text-align:center}
+.hero-in .tlogo{width:120px;height:120px}
+.hero-in b{font-family:var(--f-display);font-weight:400;font-size:clamp(22px,5vw,32px);letter-spacing:.04em}
+.hero-in small{letter-spacing:.16em;text-transform:uppercase;font-size:12px;opacity:.9}
 .tl-foot{display:flex;gap:10px;align-items:center;justify-content:center;padding:28px 16px 40px;color:var(--muted);font-size:13px}
 .tl-foot i{display:inline-block;width:22px;height:22px;background:var(--gold);-webkit-mask:var(--logo-mask) center/contain no-repeat;mask:var(--logo-mask) center/contain no-repeat}
 #tl-splash{position:fixed;inset:0;z-index:999;display:grid;place-items:center;background:radial-gradient(ellipse at center,#1b2a4a 0%,#0b1120 75%);color:#d3a94f;transition:opacity .8s ease,visibility .8s}
 #tl-splash.out{opacity:0;visibility:hidden}
+#tl-splash[hidden]{display:none}
 #tl-splash .in{display:grid;justify-items:center;gap:16px;text-align:center;padding:16px}
 #tl-splash .tlogo{width:min(46vw,200px);height:min(46vw,200px);color:#d3a94f}
 #tl-splash b{font-family:var(--f-display);font-weight:400;font-size:clamp(20px,5vw,30px);letter-spacing:.04em}
@@ -347,7 +361,7 @@ table.matrix thead th{font-size:12px;text-transform:uppercase;letter-spacing:.06
 </style>
 
 <header class="bar"><div class="wrap">
-  <div class="brand"><svg class="tlogo" id="hdr-logo" viewBox="0 0 34 34" role="img" aria-label="Square and compass"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M17 4 L7 27"/><path d="M17 4 L27 27"/><circle cx="17" cy="4.5" r="1.6" fill="currentColor"/><path d="M5 20 L17 30 L29 20"/></g></svg><div class="bt"><h1>The Trestle Board</h1><span>Pilot · v0.3</span></div></div>
+  <div class="brand"><svg class="tlogo" id="hdr-logo" viewBox="0 0 34 34" role="img" aria-label="Square and compass"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M17 4 L7 27"/><path d="M17 4 L27 27"/><circle cx="17" cy="4.5" r="1.6" fill="currentColor"/><path d="M5 20 L17 30 L29 20"/></g></svg><div class="bt"><h1>The Trestle Board</h1><span class="slogan">One Texas. One Trestle Board.</span></div></div>
   <div class="hdr-right"><div class="viewas"><label for="viewas">Viewing as</label><select id="viewas"></select></div><div class="acct" id="acct"></div></div>
 </div></header>
 <div class="demo-note"><div class="wrap">
@@ -359,7 +373,7 @@ table.matrix thead th{font-size:12px;text-transform:uppercase;letter-spacing:.06
   <nav class="tabs" role="tablist" id="tabs"></nav>
   <section id="view"></section>
 </main>
-<div class="tl-foot"><i></i><span>The Trestle Board · for Texas Masons</span></div>
+<div class="tl-foot"><i></i><span><b>One Texas. One Trestle Board.</b> · Pilot v0.3</span></div>
 <div id="tl-splash" hidden><div class="in"><svg class="tlogo" id="spl-logo" viewBox="0 0 34 34" aria-hidden="true"></svg><b>The Trestle Board</b><small>One Texas. One Trestle Board.</small></div></div>
 <div class="toast" id="toast" hidden></div>
 
@@ -792,7 +806,7 @@ function prettyDate(s){const[y,m,d]=s.split("-").map(Number);const dt=new Date(y
 
 /* ---------- shell ---------- */
 function loginView(){
-  return `<div class="panel login"><h2>The Trestle Board</h2><p class="sub" style="margin-bottom:2px"><b>One Texas. One Trestle Board.</b></p><p class="sub">Sign in to your lodges</p>
+  return `<div class="hero"><div class="hero-img"></div><div class="hero-in"><svg class="tlogo" id="hero-logo" viewBox="0 0 34 34" aria-hidden="true"></svg><b>The Trestle Board</b><small>One Texas. One Trestle Board.</small></div></div><div class="panel login"><h2>The Trestle Board</h2><p class="sub" style="margin-bottom:2px"><b>One Texas. One Trestle Board.</b></p><p class="sub">Sign in to your lodges</p>
     <div class="fake" aria-hidden="true"><span>Username</span><div>Username or email</div></div>
     <div class="fake" aria-hidden="true"><span>Password</span><div>Password</div></div>
     <button class="btn" type="button" data-act="signin" id="login-btn">Login</button>
@@ -898,7 +912,8 @@ function tlSplash(){
   sp.addEventListener("click",()=>{sp.classList.add("out");setTimeout(()=>{sp.hidden=true},700)},{once:true});
 }
 let TL_LAST="";
-function tlHeader(){const h=document.getElementById("hdr-logo");if(!h)return;const key=(S.tab||"")+"|"+(S.user||"");if(key!==TL_LAST){TL_LAST=key;tlBurn(h,1400)}}
+function tlHero(){const h=document.getElementById("hero-logo");if(h&&!h._done){h._done=1;tlBurn(h,2000)}}
+function tlHeader(){tlHero();const h=document.getElementById("hdr-logo");if(!h)return;const key=(S.tab||"")+"|"+(S.user||"");if(key!==TL_LAST){TL_LAST=key;tlBurn(h,1400)}}
 document.addEventListener("click",e=>{if(e.target.closest&&e.target.closest("#hdr-logo"))tlBurn(document.getElementById("hdr-logo"),1400)});
 function render(){
   settleFirstClaims();L=lodges(); renderSwitcher(); renderAcct();
@@ -1150,7 +1165,7 @@ function lodgeDetail(){
   ${bylawsBlock(l)}${l.gl?"":`<div class="section"><h3 class="sub">Officers</h3>${canSeePrivate(l)?officerList(l):`<p class="locked">🔒 Only members of ${esc(lname(l))} can see the officers.</p>`}</div>`}
   ${l.gl?"":pendSection("l:"+l.n,lname(l))}${l.gl?"":posManager("l:"+l.n)}
   <div class="section"><h3 class="sub">${l.gl?"Grand Lodge officers":"Members"}</h3>${l.gl||canSeePrivate(l)
-    ?(roster.length?`<div class="cards">${roster.map(([id,p])=>personCard(id,p,l.n)).join("")}</div>`:`<p class="hint">No ${l.gl?"officers":"members"} have joined on the Hub yet.</p>`)
+    ?(roster.length?`<div class="cards">${roster.map(([id,p])=>personCard(id,p,l.n)).join("")}</div>`:`<p class="hint">No ${l.gl?"officers":"members"} have joined on the Hub yet.${l.gl?"":" Be the first from this lodge. <b>One Texas. One Trestle Board.</b>"}</p>`)
     :`<p class="locked">🔒 Only members of ${esc(lname(l))} can see the roster.</p>`}</div>
   <div class="section"><h3 class="sub">Trestle Board</h3>${(()=>{const ps=S.posts.filter(p=>postReachesLodge(p,l)&&canSeePost(p)).sort((a,b)=>b.at.localeCompare(a.at)).slice(0,3);
     return !signedIn()?`<p class="locked">🔒 Sign in to see this lodge's Trestle Board.</p>`:ps.length?`<div class="stack" style="padding:0;gap:10px">${ps.map(postCard).join("")}</div><button class="linkbtn" type="button" data-act="lodge-board" data-n="${l.n}">Open ${esc(lname(l))}'s Trestle Board</button>`:`<p class="hint">Nothing posted here yet. Lodge, District ${esc(l.d)} and Grand Lodge posts will show up here.</p>`})()}</div>`;
@@ -1499,7 +1514,7 @@ function cardView(){
   return `<div class="stack" style="max-width:420px;margin:0 auto"><div class="panel pad" style="text-align:center;display:grid;gap:10px" aria-label="Virtual membership card">
     <div class="eyebrow">Virtual membership card</div><h2 class="title" style="margin:0">Planned</h2>
     <div class="chip" style="justify-self:center">Placeholder</div>
-    <p class="hint" style="margin:0">A card that shows your standing and a scannable code for the door. It will not go live until the Grand Lodge approves it and our roster links to their records, so the standing it shows is always accurate.</p></div></div>`}
+    <p class="hint" style="margin:0"><b>One Texas. One Trestle Board.</b> A card that shows your standing and a scannable code for the door. It will not go live until the Grand Lodge approves it and our roster links to their records, so the standing it shows is always accurate.</p></div></div>`}
 function openProfile(){if(S.tab!=="profile"&&S.tab!=="account")S.prevTab=S.tab;S.prof=me().profile;S.tab="profile";UI={editing:false,editProfile:false,adding:null,confirmDel:null};render();scrollTo(0,0)}
 function accountView(){
   if(!signedIn()) return `<div class="panel pad empty">Sign in to see your account.</div>`;
@@ -1770,7 +1785,7 @@ function groupsView(){
   const gs=myGroups(),q=(UI.gq||"").trim().toLowerCase(),sc=myScopes(),me_=meP();
   const find=(S.groups||[]).filter(g=>!grpMine(g)&&(!q||(g.name+" "+scopeName(g.scope)+" "+(g.desc||"")).toLowerCase().includes(q)));
   return `<div class="stack" style="max-width:680px"><div><h2 class="title" style="margin:0 0 6px">Groups</h2><p class="hint" style="margin:0">Your groups, and groups you have been added to. A group's admins add and remove its people. You can leave any group, or search for one and ask to join.</p></div>
-  ${gs.length?gs.map(groupCard).join(""):`<div class="panel empty">You are not in any groups yet. Search below to ask to join one${sc.length?", or start one for a lodge, body or district you manage":""}.</div>`}
+  ${gs.length?gs.map(groupCard).join(""):`<div class="panel empty"><b>One Texas. One Trestle Board.</b> You are not in any groups yet. Search below to ask to join one${sc.length?", or start one for a lodge, body or district you manage":""}.</div>`}
   ${me_?`<div class="panel pad" style="display:grid;gap:8px"><b>Find a group</b><input type="text" id="gq" placeholder="Search by group name, lodge, body or district" value="${esc(UI.gq||"")}" aria-label="Search groups">
     ${find.length?find.slice(0,20).map(g=>`<div style="display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:8px"><span><b>${esc(g.name)}</b> <span class="chip">${scopeLink(g.scope)}</span><br><span class="isub">${g.members.length} ${g.members.length===1?"member":"members"}${g.desc?" · "+esc(g.desc):""}</span></span>${(g.requests||[]).includes(me_)?`<span style="display:flex;gap:6px;align-items:center"><span class="chip pilot">Requested</span><button class="btn ghost small" type="button" data-act="grp-req-cancel" data-id="${esc(g.id)}">Cancel</button></span>`:`<button class="btn small" type="button" data-act="grp-req" data-id="${esc(g.id)}">Request to join</button>`}</div>`).join(""):`<p class="hint" style="margin:0">${q?"No groups match that search.":"No other groups yet."}</p>`}</div>`:""}
   ${sc.length?`<form class="panel pad" id="groupform" style="display:grid;gap:10px"><b>Start a group</b><p class="hint" style="margin:0">Groups belong to a lodge, body or district you manage. You become its admin and add the people.</p><select id="group-scope" aria-label="Group belongs to">${sc.map(k=>`<option value="${esc(k)}">${esc(scopeName(k))}</option>`).join("")}</select><input type="text" id="group-name" placeholder="Group name, e.g. Degree team" aria-label="Group name"><input type="text" id="group-desc" placeholder="What it's for (optional)" aria-label="Description"><button class="btn small" type="submit" style="justify-self:start">Create group</button></form>`:`<p class="hint">Only people who manage a lodge, body or district can start a group there.</p>`}</div>`}
@@ -1790,6 +1805,7 @@ function feedView(){
   const grp=(t,label)=>{const g=can_.filter(b=>b.t===t);return g.length?`<optgroup label="${label}">${g.map(b=>`<option value="${bKey(b)}" ${bKey(b)===S.postTo?"selected":""}>${esc(bName(b))}</option>`).join("")}</optgroup>`:""};
   return `<div class="stack" style="max-width:680px">
     ${feedTabs()}
+    ${!(S.welcomed||{})[S.user]?`<div class="panel pad welcome"><div class="eyebrow">Welcome</div><h3 class="title" style="margin:2px 0 4px">One Texas. One Trestle Board.</h3><p class="hint" style="margin:0 0 10px">One simple place for your lodge, your district and every Texas Mason to stay in touch: posts, events, groups, messages and the Laws, all in one spot.</p><button class="btn small" type="button" data-act="welcome-ok">Got it</button></div>`:""}
     ${L.some(canEdit)&&UI.adding!=="cal"?`<div class="actions" style="margin:0"><button class="btn ghost small" type="button" data-act="add-ev-feed">Add an event</button></div>`:""}${UI.adding==="cal"?eventForm(null):""}
     <div><h2 class="title" style="margin:0 0 6px">${atD?"District "+esc(atD)+" Trestle Board":atB?esc(atB.name)+" Trestle Board":atL?esc(lname(atL))+" Trestle Board":"Trestle Board"}</h2>
       <p class="hint" style="margin:0">${atD?`Posts to District ${esc(atD)}, seen by every lodge in the district. <button class="linkbtn" type="button" data-act="feed-all">Show all my boards</button>`:atB?`Posts to this ${atB.lvl==="orient"?"Scottish Rite board":atB.lvl==="valley"?"Valley and the Texas Scottish Rite":"body, its Valley and the Texas Scottish Rite"}. <button class="linkbtn" type="button" data-act="feed-all">Show all my boards</button>`:atL?`Posts to this ${atL.gl?"board":"lodge, District "+esc(atL.d)+","} and the Grand Lodge. <button class="linkbtn" type="button" data-act="feed-all">Show all my boards</button>`:"Posts from your lodges, the lodges you follow, your district, and the Grand Lodge."}</p></div>
@@ -1805,7 +1821,7 @@ function feedView(){
       <p class="hint" style="margin:0" id="post-reach">Reaches: ${esc(bReach(bFromKey(S.postTo)))}.</p>
     </form>`:`<div class="panel pad hint">You can read the boards you follow, but there's no board you can post to yet.</div>`}
     ${atL||atB||atD?"":feedBar()}
-    ${shown.length?shown.map(postCard).join(""):`<div class="panel empty">${S.feedBoards&&!atL?"No posts on the boards you have turned on.":"No posts yet. Be the first to post to your lodge's Trestle Board."}</div>`}
+    ${shown.length?shown.map(postCard).join(""):`<div class="panel empty">${S.feedBoards&&!atL?"No posts on the boards you have turned on.":"No posts yet. Be the first to post to your lodge's Trestle Board. <b>One Texas. One Trestle Board.</b>"}</div>`}
   </div>`;
 }
 
@@ -1853,7 +1869,7 @@ function mineView(){
   return `<div class="stack">
     <div class="panel pad" style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;justify-content:space-between"><div><b>Your role:</b> ${esc(role().label)} · You can edit <b>${editable.length}</b> ${editable.length===1?"lodge":"lodges"}.</div>
       ${me().profile?`<button class="btn ghost small" type="button" data-person="${me().profile}">View my profile</button>`:""}</div>
-    <div><h3 class="sub">Lodges you follow</h3>${mine.length?`<div class="cards">${mine.map(card).join("")}</div>`:`<div class="panel empty">You aren't following any lodges yet. Open one in the Directory and press Follow.</div>`}</div></div>`;
+    <div><h3 class="sub">Lodges you follow</h3>${mine.length?`<div class="cards">${mine.map(card).join("")}</div>`:`<div class="panel empty"><b>One Texas. One Trestle Board.</b> You aren't following any lodges yet. Open one in the Directory and press Follow.</div>`}</div></div>`;
 }
 function adminView(){
   const edit=can("manageRoles"),keys=Object.keys(S.roles);
@@ -1920,6 +1936,7 @@ document.addEventListener("click",e=>{
     case "go-profile":openProfile();break;
     case "profile-back":S.tab=S.prevTab&&S.prevTab!=="profile"?S.prevTab:"feed";UI={editing:false,editProfile:false,adding:null,confirmDel:null};render();break;
     case "signout":S.user="public";S.tab="feed";UI={editing:false,editProfile:false,adding:null,confirmDel:null};render();scrollTo(0,0);toast("Signed out");break;
+    case "welcome-ok":{S.welcomed=S.welcomed||{};S.welcomed[S.user]=1;render();break}
     case "signin":{S.user="mark";S.tab="feed";UI={editing:false,editProfile:false,adding:null,confirmDel:null};const ml=myLodges().filter(n=>n!==0);if(ml.length)S.sel=ml[0];if(me().profile)S.prof=me().profile;render();scrollTo(0,0);toast("Signed in as Mark (demo)");break}
     case "photo-remove":{saveAcct();const p=myProfile();ct(p,"photo").v="";logIt("removed their profile picture");render();break}
     case "aff-request":{const pr=myProfile(),lo=byNum(+t.dataset.n);if(!pr||!lo)break;if(!pr.lodges.some(x=>x.n===lo.n)){pr.lodges.push({n:lo.n,since:"",pending:true,requested:new Date().toISOString()});logIt(`requested to affiliate with ${lname(lo)}`);toast(`Request sent to ${lname(lo)}`)}render();break}
