@@ -779,19 +779,12 @@ function audit(k,text){
   const pr=S.user&&S.profiles&&me&&me().profile?S.profiles[me().profile]:null;
   const e={n:a.length+1,at:new Date().toISOString(),by:S.user||"system",who:(pr&&pr.name)||(S.user&&me()?me().label:"System"),k,text:String(text).slice(0,400),prev};e.h=_ah(e);a.push(e)}
 function auditBroken(){const a=S.audit||[];let prev="genesis";for(let i=0;i<a.length;i++){const e=a[i];if(e.n!==i+1||e.prev!==prev||e.h!==_ah(e))return i+1;prev=e.h}return 0}
-function canSeeAudit(k){
-  if(!signedIn())return false;if(can("editAnyLodge")||canManageScope(k))return true;
-  if(k==="gl")return false;
-  if(k.startsWith("l:")){const l=byNum(+k.slice(2));return !!l&&isMember(l)&&can("membersArea")}
-  if(k.startsWith("e:"))return isEntMember(k.slice(2));
-  if(k.startsWith("d:"))return me().district===k.slice(2);
-  if(k.startsWith("g:")){const g=gById(k.slice(2));return !!g&&grpMine(g)}
-  return false}
+function canSeeAudit(k){return signedIn()&&(can("editAnyLodge")||canManageScope(k))}
 const postScope=b=>b.t==="gl"?"gl":b.t==="lodge"?"l:"+b.id:b.t==="district"?"d:"+b.id:b.t==="group"?"g:"+b.id:"e:"+boardEntId(b);
 function auditBlock(k){
   if(!canSeeAudit(k))return "";
   const all=(S.audit||[]).filter(e=>e.k===k).slice().reverse(),more=UI.auditMore===k,rows=more?all:all.slice(0,15),bad=auditBroken();
-  return `<div class="section"><h3 class="sub">Activity log</h3><p class="hint" style="margin:0 0 8px">A permanent record of what happens on this Trestle Board, not the boards under it. Nobody can edit or remove an entry, including Super Admins. ${bad?`<b style="color:#b3261e">Warning: this log has been altered. The record breaks at entry ${bad}.</b>`:`<span class="chip mem">Record verified</span>`}</p>
+  return `<div class="section"><h3 class="sub">Activity log</h3><p class="hint" style="margin:0 0 8px">A permanent record of what happens on this Trestle Board, not the boards under it. Only admins of this board can see it. Nobody can edit or remove an entry, including Super Admins. ${bad?`<b style="color:#b3261e">Warning: this log has been altered. The record breaks at entry ${bad}.</b>`:`<span class="chip mem">Record verified</span>`}</p>
   ${rows.length?`<ul class="resume">${rows.map(e=>`<li><span class="what" style="min-width:150px">${esc(new Date(e.at).toLocaleString([], {month:"short",day:"numeric",year:"numeric",hour:"numeric",minute:"2-digit"}))}</span><span><b>${esc(e.who)}</b> ${esc(e.text)}</span></li>`).join("")}</ul>${all.length>15?`<button class="linkbtn" type="button" data-act="audit-more" data-k="${esc(k)}">${more?"Show fewer":"Show all "+all.length+" entries"}</button>`:""}`:`<p class="hint">Nothing recorded yet.</p>`}</div>`}
 function logIt(text){S.log.unshift({t:new Date().toISOString(),who:me().label,text});S.log=S.log.slice(0,60)}
 
@@ -1037,7 +1030,7 @@ function bodyDetail(){
     <dt>Phone</dt><dd>${b.phone?`<a href="tel:${esc(b.phone.replace(/[^0-9+]/g,""))}">${esc(b.phone)}</a>`:`<span class="unset">Not set yet</span>`}</dd>
     <dt>Email</dt><dd>${b.email?`<a href="mailto:${esc(b.email)}">${esc(b.email)}</a>`:`<span class="unset">Not set yet</span>`}</dd>
     ${web?`<dt>Website</dt><dd><a href="#" data-ext="${esc(web)}">${esc(b.web)}</a></dd>`:""}</dl>
-  ${srx}${entBoardSection(b,fol)}${subgroupList("e:"+b.id)}${bodyOfficers("e:"+b.id)}${entRosterBlock(b)}${auditBlock("e:"+b.id)}${pendSection("e:"+b.id,bodyTitle(b))}<div class="section"><h3 class="sub">Calendar</h3><p class="hint">Coming next. Events and posts from the bodies you follow will show up on your Trestle Board and Calendar next to your lodges.</p></div>
+  ${srx}${entBoardSection(b,fol)}${subgroupList("e:"+b.id)}${bodyOfficers("e:"+b.id)}${entRosterBlock(b)}${pendSection("e:"+b.id,bodyTitle(b))}<div class="section"><h3 class="sub">Calendar</h3><p class="hint">Coming next. Events and posts from the bodies you follow will show up on your Trestle Board and Calendar next to your lodges.</p></div>
   <p class="hint" style="margin-top:16px">Listing source: ${esc(src)}. Names and cities were copied from a web listing and may be out of date. Please report anything wrong.</p>`}
 function applyBodyInfo(){
   const all=[...BODIES,...SRX,...YRX];
@@ -1055,7 +1048,7 @@ function bodyEditForm(b){
     <label>Mailing address (optional, shows on the page only if filled in)<input type="text" id="bf-mail" value="${esc(b.mail||"")}" placeholder="PO Box, city, state, zip"></label>
     <label>Website (optional, shows on the page only if filled in)<input type="text" id="bf-web" value="${esc(b.web||"")}" placeholder="https://"></label>
     <div class="actions"><button class="btn" type="submit">Save changes</button><button class="btn ghost" type="button" data-act="body-edit-cancel">Cancel</button></div>
-  </form>${bodyOfficerManager(b)}${posManager("e:"+b.id)}${subgroupManager("e:"+b.id)}`}
+  </form>${bodyOfficerManager(b)}${posManager("e:"+b.id)}${subgroupManager("e:"+b.id)}${auditBlock("e:"+b.id)}`}
 const bManual=(b,o)=>((S.manualB||{})[b.id]||{})[o]||"";
 function bodyOfficerManager(b){
   const key="e:"+b.id,ros=entRoster(b.id).sort((a,c)=>a[1].name.localeCompare(c[1].name)),pos=posList(key);
@@ -1151,7 +1144,7 @@ function districtDetail(d){
   <div style="display:flex;gap:6px;flex-wrap:wrap"><span class="chip acc">${ls.length} ${ls.length===1?"lodge":"lodges"}</span></div>
   ${real?mngBlock("d:"+d):""}${real?subgroupList("d:"+d):""}
   ${real?`<div class="section"><h3 class="sub">Trestle Board</h3>${!signedIn()?`<p class="locked">🔒 Sign in to see this Trestle Board.</p>`:`${posts.length?`<div class="stack" style="padding:0;gap:10px">${posts.map(postCard).join("")}</div>`:`<p class="hint">Nothing posted to the District ${esc(d)} board yet. Posts here reach every lodge in the district.</p>`}<div class="actions" style="margin-top:10px"><button class="btn ghost small" type="button" data-act="district-board" data-d="${esc(d)}">Open District ${esc(d)} Trestle Board</button></div>${mayPost?"":`<p class="hint" style="margin:8px 0 0">District officers can post here.</p>`}`}</div>`:""}
-  ${real?auditBlock("d:"+d):""}<div class="section"><h3 class="sub">Lodges</h3><div class="cards">${ls.map(l=>`<button type="button" class="card" data-lodge="${l.n}"><span class="t">${esc(lname(l))}</span><span class="isub">${esc(l.city||"—")}${l.meet?" · "+esc(l.meet):""}</span></button>`).join("")}</div></div>`}
+  <div class="section"><h3 class="sub">Lodges</h3><div class="cards">${ls.map(l=>`<button type="button" class="card" data-lodge="${l.n}"><span class="t">${esc(lname(l))}</span><span class="isub">${esc(l.city||"—")}${l.meet?" · "+esc(l.meet):""}</span></button>`).join("")}</div></div>`}
 function item(l){
   const tags=[isMember(l)?`<span class="chip mem">${l.gl?"Officer":"Member"}</span>`:following(l)?`<span class="chip">Following</span>`:"",l.gl?`<span class="chip acc">Grand Lodge</span>`:l.pilot?`<span class="chip pilot">Pilot</span>`:"",lstatChip(l)].join(" ");
   return `<button type="button" class="item" data-lodge="${l.n}" aria-current="${S.sel===l.n}"><span class="num">${l.gl?"GL":l.n}</span>
@@ -1273,7 +1266,6 @@ function lodgeDetail(){
   <div class="section"><h3 class="sub">${l.gl?"Grand Lodge officers":"Members on the Trestle Board"}</h3>${l.gl?"":`<p class="hint" style="margin:0 0 10px">These are only the members who have joined the Trestle Board. They are not the lodge's full membership.</p>`}${l.gl||canSeePrivate(l)
     ?(roster.length?`<div class="cards">${roster.map(([id,p])=>personCard(id,p,l.n)).join("")}</div>`:`<p class="hint">No ${l.gl?"officers":"members of this lodge"} have joined the Trestle Board yet.${l.gl?"":" Be the first from this lodge. <b>One Texas. One Trestle Board.</b>"}</p>`)
     :`<p class="locked">🔒 Only members of ${esc(lname(l))} and the district officers over it can see the roster.</p>`}</div>
-  ${auditBlock(l.gl?"gl":"l:"+l.n)}
   <div class="section"><h3 class="sub">Trestle Board</h3>${(()=>{const ps=S.posts.filter(p=>postReachesLodge(p,l)&&canSeePost(p)).sort((a,b)=>b.at.localeCompare(a.at)).slice(0,3);
     return !signedIn()?`<p class="locked">🔒 Sign in to see this lodge's Trestle Board.</p>`:ps.length?`<div class="stack" style="padding:0;gap:10px">${ps.map(postCard).join("")}</div><button class="linkbtn" type="button" data-act="lodge-board" data-n="${l.n}">Open ${esc(lname(l))}'s Trestle Board</button>`:`<p class="hint">Nothing posted here yet. Lodge, District ${esc(l.d)} and Grand Lodge posts will show up here.</p>`})()}</div>`;
 }
@@ -1296,7 +1288,7 @@ function editLodgeForm(l){
       ${moveOk?"":`<span class="hint">Only Grand Lodge level roles can move a lodge to another district.</span>`}</label>`}
     ${!l.gl&&can("mergeLodges")?`<label>Lodge status (Grand Lodge officers only)<select id="f-status">${LSTATUS.map(x=>`<option ${x===lstat(l)?"selected":""}>${x}</option>`).join("")}</select><span class="hint">Changes are logged. Lodges that are not Active show a red status tag everywhere.</span></label>`:""}
     <div class="actions"><button class="btn" type="submit">Save changes</button><button class="btn ghost" type="button" data-act="cancel">Cancel</button></div>
-  </form>${officerManager(l)}${l.gl?"":posManager("l:"+l.n)}${subgroupManager(l.gl?"gl":"l:"+l.n)}`;
+  </form>${officerManager(l)}${l.gl?"":posManager("l:"+l.n)}${subgroupManager(l.gl?"gl":"l:"+l.n)}${auditBlock(l.gl?"gl":"l:"+l.n)}`;
 }
 
 /* ---------- events UI ---------- */
@@ -1917,7 +1909,7 @@ function subgroupManager(k){
   return `<div class="section"><h3 class="sub">Build a new Trestle Board</h3><p class="hint" style="margin:0 0 10px">It sits directly under ${esc(scopeName(k))}. Give it a name, like Finance Committee or Barbecue Fundraiser Committee. It gets its own Trestle Board, you choose who is on it, and it can have Trestle Boards under it too.</p><form class="inline-form" data-newgrp="${esc(k)}"><label>Name<input type="text" name="name" maxlength="80" placeholder="e.g. Finance Committee"></label><label>What it's for (optional)<input type="text" name="desc" maxlength="160"></label><button class="btn small" type="submit">Build Trestle Board</button></form>${gKids(k).length?`<h4 class="sub" style="margin:14px 0 6px">Trestle Boards directly under ${esc(scopeName(k))}</h4><ul class="resume">${gKids(k).map(g=>{const n=gDesc(g).length;return `<li style="display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap"><span><button type="button" class="linkbtn" data-act="group-open" data-id="${esc(g.id)}">${esc(g.name)}</button> <span class="isub">${g.members.length} ${g.members.length===1?"member":"members"}${n?` · ${n} more under it`:""}</span></span>${UI.rmGrp===g.id?`<span style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><span class="hint">Remove it${n?" and everything under it":""}, with its posts?</span><button class="btn small" type="button" data-act="group-del" data-id="${esc(g.id)}">Yes, remove</button><button class="btn ghost small" type="button" data-act="group-del-no">Keep</button></span>`:`<button class="btn ghost small" type="button" data-act="group-del-ask" data-id="${esc(g.id)}">Remove</button>`}</li>`}).join("")}</ul>`:""}</div>`}
 function mngBlock(k){
   if(!canManageScope(k))return "";
-  return `<div class="actions" style="margin:8px 0 0"><button class="btn ghost small" type="button" data-act="mng-toggle" data-k="${esc(k)}">${UI.mng===k?"Close editing":"Edit and build Trestle Boards"}</button></div>${UI.mng===k?subgroupManager(k):""}`}
+  return `<div class="actions" style="margin:8px 0 0"><button class="btn ghost small" type="button" data-act="mng-toggle" data-k="${esc(k)}">${UI.mng===k?"Close editing":"Edit and build Trestle Boards"}</button></div>${UI.mng===k?subgroupManager(k)+auditBlock(k):""}`}
 function groupCrumbs(g){
   const ch=gChain(g),r=ch[0].scope,out=[];
   if(r)out.push({l:scopeName(r),a:"scope-open",d:["k",r]});
@@ -1931,7 +1923,6 @@ function groupPage(g){
   return `${groupCrumbs(g)}<div class="panel detail"><div class="eyebrow">Trestle Board under ${esc(scopeName(par))}</div><h2 class="title">${esc(g.name)}</h2>${g.desc?`<p class="hint" style="margin:0 0 8px">${esc(g.desc)}</p>`:""}
   <div class="section"><h3 class="sub">Trestle Board</h3>${!seeRoster?`<p class="locked">🔒 Only people on this Trestle Board can see its posts.</p>`:ps.length?`<div class="stack" style="padding:0;gap:10px">${ps.map(postCard).join("")}</div>`:`<p class="hint">Nothing posted here yet. Posts here go to the people on this Trestle Board and show up on their own main Trestle Board.</p>`}${seeRoster?`<div class="actions" style="margin-top:10px"><button class="btn ghost small" type="button" data-act="group-board" data-id="${esc(g.id)}">Open ${esc(g.name)} Trestle Board</button></div>${canPost?"":`<p class="hint" style="margin:8px 0 0">Add yourself to this Trestle Board to post.</p>`}`:""}</div>
   ${subgroupList("g:"+g.id)}
-  ${auditBlock("g:"+g.id)}
   </div>${groupCard(g)}`}
 const grpMine=g=>g.members.includes(meP());
 function migrateGroups(){(S.groups||[]).forEach(g=>{if(!g.admins)g.admins=[g.members[g.members.length-1]].filter(Boolean);if(!g.requests)g.requests=[];if(g.scope===undefined)g.scope=""})}
@@ -1951,7 +1942,7 @@ function groupCard(g){
       ${reqs?`<div><span class="eyebrow" style="margin:0">Requests</span><ul class="resume">${reqs}</ul></div>`:""}
       <form class="inline-form" data-grpadd="${esc(g.id)}"><label>Add a member<input type="text" name="who" list="grp-ppl-${esc(g.id)}" autocomplete="off" placeholder="Start typing a name, then pick it"><datalist id="grp-ppl-${esc(g.id)}">${cand.map(id=>`<option value="${esc(pname(id))}"></option>`).join("")}</datalist></label><button class="btn small" type="submit">Add</button></form>
       <div><span class="eyebrow" style="margin:0">Members</span><ul class="resume">${memRows}</ul></div>
-      ${subgroupManager("g:"+g.id)}
+      ${subgroupManager("g:"+g.id)}${auditBlock("g:"+g.id)}
       <div>${UI.rmGrp===g.id?`<span class="hint">Remove this Trestle Board${gKids("g:"+g.id).length?" and everything under it":""}, with its posts? </span><button class="btn small" type="button" data-act="group-del" data-id="${esc(g.id)}">Yes, remove</button> <button class="btn ghost small" type="button" data-act="group-del-no">Keep</button>`:`<button class="btn ghost small" type="button" data-act="group-del-ask" data-id="${esc(g.id)}">Remove this Trestle Board</button>`}</div></div>`
     :`<div class="isub">${g.members.slice(0,6).map(id=>esc(pname(id))).join(", ")}${g.members.length>6?` and ${g.members.length-6} more`:""}</div>`}</div>`}
 function groupsView(){
