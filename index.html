@@ -845,7 +845,7 @@ function renderSwitcher(){document.getElementById("viewas").innerHTML=USERS.filt
 function tabs(){
   const adm=can("manageRoles")||can("editAnyLodge"),pr=!!myProfile(),un=totalUnread();
   const T=[
-    {k:"feed",l:"Trestle Board",main:"feed:feed",sub:[["feed:feed","Trestle Board"],["feed:cal","Calendar"],["feed:groups","Groups"]]},
+    {k:"feed",l:"My Trestle Boards",main:"feed:feed",sub:[["feed:feed","My Trestle Boards"],["feed:cal","Calendar"],["feed:groups","Groups"]]},
     {k:"dir",l:"Lodge Directory",main:"dir:mine",sub:[["dir:mine","My lodges"],["dir:find","Find a lodge"]]},
     {k:"bodies",l:"Appendant Bodies",main:"bodies:home",sub:[["bodies:Shrine","Shrine"],["bodies:Scottish Rite","Scottish Rite"],["bodies:York Rite","York Rite"]]},
     {k:"members",l:"Masons",main:"members",sub:[["members","Find a Mason"],...(pr?[["members:profile","My profile"],["members:card","My card"],["members:mentor","Mentoring"],["members:messages","Messages",un]]:[])]},
@@ -1851,7 +1851,7 @@ function postExtras(p){
   if(p.poll){const tot=p.poll.reduce((a,o)=>a+o.v.length,0);h+=`<div role="group" aria-label="Poll">${p.poll.map((o,i)=>{const pc=tot?Math.round(o.v.length/tot*100):0;return `<button type="button" class="pollbar ${o.v.includes(S.user)?"me":""}" data-act="vote" data-post="${p.id}" data-i="${i}"><i style="width:${pc}%"></i><span><span>${esc(o.t)}${o.v.includes(S.user)?" ✓":""}</span><span>${o.v.length} · ${pc}%</span></span></button>`}).join("")}<div class="isub">${tot} ${tot===1?"vote":"votes"}. Tap an option to vote, tap again to undo.</div></div>`}
   return h}
 function feedTabs(){const a=S.tab==="cal"?"cal":S.feedTab==="groups"?"groups":"feed";
-  return `<div class="seg" role="tablist" aria-label="Trestle Board sections" style="margin:0 0 4px">${[["feed","Trestle Board"],["cal","Calendar"],["groups","Groups"]].map(([k,l])=>`<button type="button" class="btn small ${a===k?"":"ghost"}" role="tab" aria-selected="${a===k}" data-act="feed-tab" data-k="${k}">${l}</button>`).join(" ")}</div>`}
+  return `<div class="seg" role="tablist" aria-label="Trestle Board sections" style="margin:0 0 4px">${[["feed","My Trestle Boards"],["cal","Calendar"],["groups","Groups"]].map(([k,l])=>`<button type="button" class="btn small ${a===k?"":"ghost"}" role="tab" aria-selected="${a===k}" data-act="feed-tab" data-k="${k}">${l}</button>`).join(" ")}</div>`}
 const scopeName=k=>{if(!k)return "Personal";if(k==="gl")return "Grand Lodge";if(k[0]==="l"){const l=byNum(+k.slice(2));return l?lname(l):k}if(k[0]==="e"){const e=entById(k.slice(2));return e?bodyTitle(e):k}if(k[0]==="d")return "District "+k.slice(2);if(k.startsWith("g:")){const g=gById(k.slice(2));return g?g.name:"Trestle Board"}return k};
 const scopeLink=k=>{if(!k)return "Personal";if(k[0]==="l"&&byNum(+k.slice(2)))return `<button type="button" class="linkbtn" data-lodge-open="${k.slice(2)}">${esc(scopeName(k))}</button>`;if(k[0]==="e"&&entById(k.slice(2)))return `<button type="button" class="linkbtn" data-act="ent-open" data-bid="${esc(k.slice(2))}">${esc(scopeName(k))}</button>`;if(k.startsWith("g:")&&gById(k.slice(2)))return `<button type="button" class="linkbtn" data-act="group-open" data-id="${esc(k.slice(2))}">${esc(scopeName(k))}</button>`;return esc(scopeName(k))};
 function myScopes(){
@@ -1934,7 +1934,7 @@ function groupsView(){
 function feedView(){
   if(S.feedTab==="groups"&&signedIn()) return `<div class="stack" style="max-width:680px">${feedTabs()}</div>`+groupsView();
   const pr=myProfile();
-  if(!signedIn()) return `<div class="stack" style="max-width:680px"><h2 class="title" style="margin:0">Trestle Board</h2><div class="panel empty">Sign in to see your lodges' Trestle Boards. Switch "Viewing as" to a signed-in role.</div></div>`;
+  if(!signedIn()) return `<div class="stack" style="max-width:680px"><h2 class="title" style="margin:0">My Trestle Boards</h2><div class="panel empty">Sign in to see your lodges' Trestle Boards. Switch "Viewing as" to a signed-in role.</div></div>`;
   const can_=boardsICanPost();
   if(!can_.some(b=>bKey(b)===S.postTo)) S.postTo=can_[0]?bKey(can_[0]):"";
   const visible=S.posts.filter(canSeePost).sort((a,b)=>b.at.localeCompare(a.at));
@@ -1950,7 +1950,7 @@ function feedView(){
     ${feedTabs()}
     ${!(S.welcomed||{})[S.user]?`<div class="panel pad welcome"><div class="eyebrow">Welcome</div><h3 class="title" style="margin:2px 0 4px">One Texas. One Trestle Board.</h3><p class="hint" style="margin:0 0 10px">One simple place for your lodge, your district and every Texas Mason to stay in touch: posts, events, groups, messages and the Laws, all in one spot.</p><button class="btn small" type="button" data-act="welcome-ok">Got it</button></div>`:""}
     ${L.some(canEdit)&&UI.adding!=="cal"?`<div class="actions" style="margin:0"><button class="btn ghost small" type="button" data-act="add-ev-feed">Add an event</button></div>`:""}${UI.adding==="cal"?eventForm(null):""}
-    <div><h2 class="title" style="margin:0 0 6px">${atG?esc(atG.name)+" Trestle Board":atD?"District "+esc(atD)+" Trestle Board":atB?esc(atB.name)+" Trestle Board":atL?esc(lname(atL))+" Trestle Board":"Trestle Board"}</h2>
+    <div><h2 class="title" style="margin:0 0 6px">${atG?esc(atG.name)+" Trestle Board":atD?"District "+esc(atD)+" Trestle Board":atB?esc(atB.name)+" Trestle Board":atL?esc(lname(atL))+" Trestle Board":"My Trestle Boards"}</h2>
       <p class="hint" style="margin:0">${atG?`Posts to this Trestle Board go to its people and show on their own main Trestle Board. <button class="linkbtn" type="button" data-act="group-open" data-id="${esc(atG.id)}">About this Trestle Board</button> · <button class="linkbtn" type="button" data-act="feed-all">Show all my boards</button>`:atD?`Posts to District ${esc(atD)}, seen by every lodge in the district. <button class="linkbtn" type="button" data-act="feed-all">Show all my boards</button>`:atB?`Posts to this ${atB.lvl==="orient"?"Scottish Rite board":atB.lvl==="valley"?"Valley and the Texas Scottish Rite":atB.lvl==="body"?"body, its Valley and the Texas Scottish Rite":"body, seen by its members and followers"}. <button class="linkbtn" type="button" data-act="feed-all">Show all my boards</button>`:atL?`Posts to this ${atL.gl?"board":"lodge, District "+esc(atL.d)+","} and the Grand Lodge. <button class="linkbtn" type="button" data-act="feed-all">Show all my boards</button>`:"Posts from your lodges, the lodges you follow, your district, and the Grand Lodge."}</p></div>
     ${can_.length?`<form class="panel pad" id="postform" style="display:grid;gap:10px">
       <div style="display:flex;gap:10px;align-items:flex-start"><span class="avatar">${pr?initials(pr.name):"SA"}</span>
