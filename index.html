@@ -798,8 +798,33 @@ function parseMeet(s){
   return{nth:parseInt(m[1]),dow:DOWS.indexOf(d),time:`${pad(h)}:${m[4]}`};
 }
 function nthDow(y,mo,nth,dow){const f=new Date(y,mo,1).getDay();const d=1+((dow-f+7)%7)+(nth-1)*7;return new Date(y,mo,d).getMonth()===mo?d:null}
+const evScope=e=>e.k||(e.n===0?"gl":"l:"+e.n);
+const evKeyOfScope=k=>k.startsWith("e:")&&entById(k.slice(2))?entBoardKey(entById(k.slice(2))):k;
+const calKeyToScope=k=>k==="or"?"e:sr-texas":/^[va]:/.test(k)?"e:"+k.slice(2):k;
+const evWhere=e=>{const k=evScope(e);return k==="gl"?"Grand Lodge":scopeName(k)};
+function evMemberOf(k){
+  if(!signedIn())return false;if(canManageScope(k)||can("editAnyLodge"))return true;
+  if(k==="gl")return true;
+  if(k.startsWith("l:")){const l=byNum(+k.slice(2));return !!l&&canSeePrivate(l)}
+  if(k.startsWith("d:"))return me().district===k.slice(2)||myWorld().some(l=>l.d===k.slice(2));
+  if(k.startsWith("e:")){const mp=myProfile();return ((mp&&mp.ents)||[]).some(x=>!x.pending&&entById(x.id)&&entChain(entById(x.id)).includes(k.slice(2)))}
+  if(k.startsWith("g:")){const g=gById(k.slice(2));return !!g&&grpMine(g)}
+  return false}
+function evCanEdit(e){return e.k?canManageScope(e.k):canEdit(byNum(e.n))}
+function manageableScopes(){
+  if(!signedIn())return [];const out=[];
+  L.filter(canEdit).forEach(l=>out.push({k:keyOf(l.n),g:"Lodges",l:lname(l)}));
+  districts().filter(d=>d!=="Grand Lodge"&&d!=="Statewide").forEach(d=>{if(canManageScope("d:"+d))out.push({k:"d:"+d,g:"Districts",l:"District "+d})});
+  [...YRX,...SRX,...BODIES].forEach(e=>{if(canManageScope("e:"+e.id))out.push({k:"e:"+e.id,g:"Appendant bodies",l:bodyTitle(e)})});
+  (S.groups||[]).forEach(g=>{if(grpManage(g))out.push({k:"g:"+g.id,g:"Committees",l:g.name})});
+  return out}
+function scopeBoard(k){return k==="gl"?{t:"gl"}:k.startsWith("l:")?{t:"lodge",id:+k.slice(2)}:k.startsWith("d:")?{t:"district",id:k.slice(2)}:k.startsWith("g:")?{t:"group",id:k.slice(2)}:{t:entBoardType(entById(k.slice(2))),id:k.slice(2)}}
+function evPill(e){if(e.type!=="Stated meeting")return e.title;const k=evScope(e);if(e.n===0)return "Grand Lodge";if(k.startsWith("l:"))return byNum(e.n).name+" stated";const b=k.startsWith("e:")?entById(k.slice(2)):null;return (b?b.name:"")+" stated"}
 function monthEvents(y,mo){
   const out=[];
+  for(const b of [...BODIES,...SRX,...YRX]){ if(!b.meet) continue;
+    parseMeets(b.meet).forEach((p,i)=>{const d=nthDow(y,mo,p.nth,p.dow); if(!d) return;
+      out.push({id:`stb-${b.id}-${y}-${mo}-${i}`,n:null,k:"e:"+b.id,title:"Stated meeting",type:"Stated meeting",date:ymd(y,mo,d),time:p.time,vis:"public",auto:true});});}
   for(const l of L){ if(!l.meet) continue;
     parseMeets(l.meet).forEach((p,i)=>{const d=nthDow(y,mo,p.nth,p.dow); if(!d) return;
       out.push({id:`st-${l.n}-${y}-${mo}-${i}`,n:l.n,title:"Stated meeting",type:"Stated meeting",date:ymd(y,mo,d),time:p.time,vis:"public",auto:true});});}
@@ -807,8 +832,8 @@ function monthEvents(y,mo){
   for(const e of S.events) if(e.date.startsWith(pre)) out.push(e);
   return out.filter(visibleEv).sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
 }
-function visibleEv(e){const l=byNum(e.n);return !!l&&(e.vis==="public"||canSeePrivate(l))}
-function inScope(e){if(S.calScope==="all"||!signedIn())return true;return following(byNum(e.n))}
+function visibleEv(e){if(e.k)return e.vis==="public"||evMemberOf(e.k);const l=byNum(e.n);return !!l&&(e.vis==="public"||canSeePrivate(l))}
+function inScope(e){if(S.calScope==="all"||!signedIn())return true;return e.k?true:following(byNum(e.n))}
 function upcomingFor(n,count){
   const res=[];let y=today.getFullYear(),m=today.getMonth();
   for(let i=0;i<4&&res.length<count;i++){
@@ -818,10 +843,11 @@ function upcomingFor(n,count){
   return res.slice(0,count);
 }
 function gcal(e){
-  const l=byNum(e.n);const[y,mo,d]=e.date.split("-");const[h,mi]=(e.time||"19:00").split(":");
+  const k=evScope(e),src=(k==="gl"||k.startsWith("l:"))?byNum(e.n):k.startsWith("e:")?entById(k.slice(2)):null;
+  const[y,mo,d]=e.date.split("-");const[h,mi]=(e.time||"19:00").split(":");
   const eh=pad(Math.min(23,+h+2));
-  const loc=[l.addr,l.city,"TX"].filter(Boolean).join(", ");
-  const q=new URLSearchParams({action:"TEMPLATE",text:`${e.title} · ${lname(l)}`,dates:`${y}${mo}${d}T${h}${mi}00/${y}${mo}${d}T${eh}${mi}00`,ctz:"America/Chicago",details:e.notes||"",location:loc});
+  const loc=[src&&src.addr,src&&src.city,"TX"].filter(Boolean).join(", ");
+  const q=new URLSearchParams({action:"TEMPLATE",text:`${e.title} · ${evWhere(e)}`,dates:`${y}${mo}${d}T${h}${mi}00/${y}${mo}${d}T${eh}${mi}00`,ctz:"America/Chicago",details:e.notes||"",location:loc});
   return "https://calendar.google.com/calendar/render?"+q.toString();
 }
 function prettyDate(s){const[y,m,d]=s.split("-").map(Number);const dt=new Date(y,m-1,d);return`${DOWS[dt.getDay()]}, ${MONTHS[m-1].slice(0,3)} ${d}`}
@@ -1030,7 +1056,7 @@ function bodyDetail(){
     <dt>Phone</dt><dd>${b.phone?`<a href="tel:${esc(b.phone.replace(/[^0-9+]/g,""))}">${esc(b.phone)}</a>`:`<span class="unset">Not set yet</span>`}</dd>
     <dt>Email</dt><dd>${b.email?`<a href="mailto:${esc(b.email)}">${esc(b.email)}</a>`:`<span class="unset">Not set yet</span>`}</dd>
     ${web?`<dt>Website</dt><dd><a href="#" data-ext="${esc(web)}">${esc(b.web)}</a></dd>`:""}</dl>
-  ${srx}${entBoardSection(b,fol)}${subgroupList("e:"+b.id)}${bodyOfficers("e:"+b.id)}${entRosterBlock(b)}${pendSection("e:"+b.id,bodyTitle(b))}<div class="section"><h3 class="sub">Calendar</h3><p class="hint">Coming next. Events and posts from the bodies you follow will show up on your Trestle Board and Calendar next to your lodges.</p></div>
+  ${srx}${entBoardSection(b,fol)}${subgroupList("e:"+b.id)}${bodyOfficers("e:"+b.id)}${entRosterBlock(b)}${pendSection("e:"+b.id,bodyTitle(b))}<div class="section"><h3 class="sub">Calendar</h3>${calendar({keys:[evKeyOfScope("e:"+b.id)],scope:"e:"+b.id})}</div>
   <p class="hint" style="margin-top:16px">Listing source: ${esc(src)}. Names and cities were copied from a web listing and may be out of date. Please report anything wrong.</p>`}
 function applyBodyInfo(){
   const all=[...BODIES,...SRX,...YRX];
@@ -1144,7 +1170,7 @@ function districtDetail(d){
   <div style="display:flex;gap:6px;flex-wrap:wrap"><span class="chip acc">${ls.length} ${ls.length===1?"lodge":"lodges"}</span></div>
   ${real?mngBlock("d:"+d):""}${real?subgroupList("d:"+d):""}
   ${real?`<div class="section"><h3 class="sub">Trestle Board</h3>${!signedIn()?`<p class="locked">🔒 Sign in to see this Trestle Board.</p>`:`${posts.length?`<div class="stack" style="padding:0;gap:10px">${posts.map(postCard).join("")}</div>`:`<p class="hint">Nothing posted to the District ${esc(d)} board yet. Posts here reach every lodge in the district.</p>`}<div class="actions" style="margin-top:10px"><button class="btn ghost small" type="button" data-act="district-board" data-d="${esc(d)}">Open District ${esc(d)} Trestle Board</button></div>${mayPost?"":`<p class="hint" style="margin:8px 0 0">District officers can post here.</p>`}`}</div>`:""}
-  <div class="section"><h3 class="sub">Lodges</h3><div class="cards">${ls.map(l=>`<button type="button" class="card" data-lodge="${l.n}"><span class="t">${esc(lname(l))}</span><span class="isub">${esc(l.city||"—")}${l.meet?" · "+esc(l.meet):""}</span></button>`).join("")}</div></div>`}
+  ${real?`<div class="section"><h3 class="sub">Calendar</h3>${calendar({keys:["d:"+d],scope:"d:"+d})}</div>`:""}<div class="section"><h3 class="sub">Lodges</h3><div class="cards">${ls.map(l=>`<button type="button" class="card" data-lodge="${l.n}"><span class="t">${esc(lname(l))}</span><span class="isub">${esc(l.city||"—")}${l.meet?" · "+esc(l.meet):""}</span></button>`).join("")}</div></div>`}
 function item(l){
   const tags=[isMember(l)?`<span class="chip mem">${l.gl?"Officer":"Member"}</span>`:following(l)?`<span class="chip">Following</span>`:"",l.gl?`<span class="chip acc">Grand Lodge</span>`:l.pilot?`<span class="chip pilot">Pilot</span>`:"",lstatChip(l)].join(" ");
   return `<button type="button" class="item" data-lodge="${l.n}" aria-current="${S.sel===l.n}"><span class="num">${l.gl?"GL":l.n}</span>
@@ -1292,26 +1318,26 @@ function editLodgeForm(l){
 }
 
 /* ---------- events UI ---------- */
-function eventForm(n){
-  const editable=n?null:L.filter(canEdit);
-  const def=n??(myLodges().find(x=>editable.some(l=>l.n===x))??editable?.[0]?.n);
-  const dflt=S.calDay||TODAY;
+function eventForm(sk){
+  const ms=manageableScopes(),dflt=S.calDay||TODAY;
+  const def=sk||(ms.find(x=>x.k[0]==="l"&&myLodges().includes(+x.k.slice(2)))||ms[0]||{}).k;
+  const groups=["Lodges","Districts","Appendant bodies","Committees"].map(g=>({g,items:ms.filter(x=>x.g===g)})).filter(x=>x.items.length);
   return `<form class="edit private" id="evform" style="margin-bottom:12px">
-    ${n!=null?`<input type="hidden" id="ev-lodge" value="${n}">`:`<label>Lodge<select id="ev-lodge">${editable.map(l=>`<option value="${l.n}" ${l.n===def?"selected":""}>${esc(lname(l))}</option>`).join("")}</select></label>`}
+    ${sk?`<input type="hidden" id="ev-scope" value="${esc(sk)}">`:`<label>Which Trestle Board<select id="ev-scope">${groups.map(x=>`<optgroup label="${x.g}">${x.items.map(i=>`<option value="${esc(i.k)}" ${i.k===def?"selected":""}>${esc(i.l)}</option>`).join("")}</optgroup>`).join("")}</select></label>`}
     <label>Event title<input type="text" id="ev-title" placeholder="e.g. Master Mason degree" required></label>
     <div class="two"><label>Date<input type="date" id="ev-date" value="${dflt}" required></label><label>Start time<input type="time" id="ev-time" value="19:00"></label></div>
     <div class="two"><label>Type<select id="ev-type">${TYPES.map(t=>`<option>${t}</option>`).join("")}</select></label>
-      <label>Who can see it<select id="ev-vis"><option value="public">Everyone</option><option value="members">Lodge members only</option></select></label></div>
+      <label>Who can see it<select id="ev-vis"><option value="public">Everyone</option><option value="members">Members only</option></select></label></div>
     <label>Notes<textarea id="ev-notes" rows="2"></textarea></label>
     <div class="actions" style="margin:0"><button class="btn" type="submit">Add to calendar</button><button class="btn ghost" type="button" data-act="cancel-ev">Cancel</button></div>
   </form>`;
 }
 function agendaItem(e){
-  const l=byNum(e.n);const[,m,d]=e.date.split("-").map(Number);
-  const del=!e.auto&&canEdit(l);
+  const k=evScope(e);const[,m,d]=e.date.split("-").map(Number);
+  const del=!e.auto&&evCanEdit(e);
   return `<li><div class="date"><b>${d}</b>${MONTHS[m-1].slice(0,3)} · ${DOWS[new Date(e.date+"T12:00").getDay()]}</div>
   <div style="min-width:0"><div class="ev-t">${esc(e.title)} ${e.vis==="members"?`<span class="chip acc">Members only</span>`:""} ${e.sample?`<span class="chip">Sample</span>`:""}</div>
-  <div class="meta">${fmtTime(e.time)} · <button type="button" class="linkbtn" data-lodge-open="${l.n}">${esc(lname(l))}</button> · ${esc(e.type)}</div>
+  <div class="meta">${fmtTime(e.time)} · ${k==="gl"||k.startsWith("l:")?`<button type="button" class="linkbtn" data-lodge-open="${e.n}">${esc(evWhere(e))}</button>`:`<button type="button" class="linkbtn" data-act="scope-open" data-k="${esc(k)}">${esc(evWhere(e))}</button>`} · ${esc(e.type)}</div>
   ${e.notes?`<div class="meta">${esc(e.notes)}</div>`:""}
   <div class="acts">${rsvpHtml(e)}<a class="btn ghost small" href="${gcal(e)}" target="_blank" rel="noopener">Add to Google Calendar</a>
   ${del?(UI.confirmDel===e.id?`<button class="btn danger small" type="button" data-act="del-ev" data-id="${e.id}">Confirm delete</button><button class="btn ghost small" type="button" data-act="keep-ev">Keep</button>`:`<button class="btn ghost small" type="button" data-act="ask-del" data-id="${e.id}">Delete</button>`):""}</div></div></li>`;
@@ -1321,21 +1347,21 @@ const keyOf=n=>n===0?"gl":"l:"+n;
 function bodyLabel(k){if(k==="gl")return "Grand Lodge";
   if(k==="or")return "Texas Scottish Rite";
   if(/^[vae]:/.test(k)){const e=entById(k.slice(2));return e?bodyTitle(e):k}if(k.startsWith("g:")){const g=gById(k.slice(2));return g?g.name:k}if(k[0]==="d")return "District "+k.slice(2);const l=byNum(+k.slice(2));return l?lname(l):k}
-function evIn(e,k){return k==="gl"?e.n===0:k[0]==="l"?e.n===+k.slice(2):byNum(e.n)?.d===k.slice(2)}
-function calKeys(){return S.calBodies||(signedIn()?myWorld().map(l=>keyOf(l.n)):[])}
+function evIn(e,k){const sk=calKeyToScope(k);if(e.k)return e.k===sk;return sk==="gl"?e.n===0:sk[0]==="l"?e.n===+sk.slice(2):false}
+function calKeys(){return S.calBodies||(signedIn()?feedDefaultKeys():[])}
 function bodyBar(keys){
-  const mine=myWorld(),opts=[...keys];
-  for(const l of mine){const d="d:"+l.d;if(l.d!=="Grand Lodge"&&l.d!=="Statewide"&&!opts.includes(d))opts.push(d)}
-  if(!opts.includes("gl"))opts.push("gl");
-  const chips=opts.map(k=>{const on=keys.includes(k),c=PAL[keys.indexOf(k)%PAL.length];
-    return `<button type="button" class="btn small ${on?"":"ghost"}" data-act="cal-toggle" data-key="${esc(k)}" aria-pressed="${on}">${on?`<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${c};margin-right:6px;border:1px solid #fff8"></span>`:""}${esc(bodyLabel(k))}</button>`}).join("");
+  const def=feedDefaultKeys(),opts=[...def];keys.forEach(k=>{if(!opts.includes(k))opts.push(k)});
+  const open=!!S.calBarOpen,order=["Lodges","Districts and Grand Lodge","Scottish Rite","York Rite","Shrine","Committees","Other"],grp={};
+  opts.forEach(k=>{const g=feedBarGroup(k);(grp[g]=grp[g]||[]).push(k)});
+  const chip=k=>{const on=keys.includes(k),c=PAL[keys.indexOf(k)%PAL.length];
+    return `<button type="button" class="btn small ${on?"":"ghost"}" data-act="cal-toggle" data-key="${esc(k)}" aria-pressed="${on}">${on?`<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${c};margin-right:6px;border:1px solid #fff8"></span>`:""}${esc(bodyLabel(k))}</button>`};
   const ds=districts().filter(d=>d!=="Grand Lodge"&&d!=="Statewide");
-  const add=`<select id="cal-add" aria-label="Add a lodge, district or the Grand Lodge to this calendar"><option value="">+ Add a body…</option>
+  const add=`<select id="cal-add" aria-label="Add a lodge or district to this calendar"><option value="">+ Add a lodge or district…</option>
     <optgroup label="Districts">${ds.filter(d=>!keys.includes("d:"+d)).map(d=>`<option value="d:${esc(d)}">District ${esc(d)}</option>`).join("")}</optgroup>
     <optgroup label="Lodges">${L.filter(l=>!l.gl&&!keys.includes(keyOf(l.n))).map(l=>`<option value="${keyOf(l.n)}">${esc(lname(l))}</option>`).join("")}</optgroup></select>`;
-  return `<div style="display:grid;gap:8px;margin-bottom:14px">
-    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center"><button type="button" class="btn small ${S.calBodies?"ghost":""}" data-act="cal-reset">My calendar</button><span class="hint" style="margin:0">${S.calBodies?"Custom view":"Your lodges and anything you follow"}</span></div>
-    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">${chips}${add}</div></div>`;
+  return `<div style="display:grid;gap:10px;margin-bottom:14px">
+    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center"><button type="button" class="btn small ${S.calBodies?"ghost":""}" data-act="cal-reset">My calendar</button><span class="hint" style="margin:0">Showing ${opts.filter(k=>keys.includes(k)).length} of ${opts.length} boards</span><button type="button" class="btn ghost small" data-act="cal-bar-toggle" aria-expanded="${open}">${open?"Hide the list":"Choose boards"}</button></div>
+    ${open?order.filter(g=>grp[g]).map(g=>`<div style="display:grid;gap:6px"><span class="eyebrow" style="margin:0">${esc(g)}</span><div style="display:flex;flex-wrap:wrap;gap:6px">${grp[g].map(chip).join("")}</div></div>`).join("")+`<div>${add}</div>`:""}</div>`;
 }
 function calendar(ctx){
   const y=S.calY,mo=S.calM,keys=ctx.keys,multi=keys.length>1&&!ctx.all;
@@ -1350,16 +1376,16 @@ function calendar(ctx){
     if(i>=35&&dn>days&&i%7===0) break;
     const key=ymd(cy,cm,cd); const de=out?[]:evs.filter(e=>e.date===key);
     cells+=`<button type="button" class="day ${out?"out":""} ${key===TODAY?"today":""}" data-day="${key}" aria-pressed="${S.calDay===key}" aria-label="${key}, ${de.length} events"><span class="dnum">${cd}</span>
-      ${de.slice(0,3).map(e=>{const c=colorOf(e);return `<span class="pill ${typeClass(e.type)} ${multi?"multi":""}" ${multi?`style="--bc:${c};border-left-color:${c}"`:""}>${esc(e.type==="Stated meeting"?(e.n===0?"Grand Lodge":byNum(e.n).name+" stated"):e.title)}</span>`}).join("")}${de.length>3?`<span class="more">+${de.length-3} more</span>`:""}</button>`;
+      ${de.slice(0,3).map(e=>{const c=colorOf(e);return `<span class="pill ${typeClass(e.type)} ${multi?"multi":""}" ${multi?`style="--bc:${c};border-left-color:${c}"`:""}>${esc(evPill(e))}</span>`}).join("")}${de.length>3?`<span class="more">+${de.length-3} more</span>`:""}</button>`;
   }
   const shown=S.calDay?evs.filter(e=>e.date===S.calDay):evs;
-  const lg=ctx.lodge;
-  const canAdd=signedIn()&&(lg?canEdit(lg):L.some(canEdit));
-  const addKey=lg?lg.n:"cal";
+  const lg=ctx.lodge,sk=ctx.scope||(lg?keyOf(lg.n):null);
+  const canAdd=signedIn()&&(sk?(sk[0]==="l"||sk==="gl"?canEdit(lg||byNum(sk==="gl"?0:+sk.slice(2))):canManageScope(sk)):manageableScopes().length>0);
+  const addKey=sk||"cal";
   return `<div class="calbar"><div class="calnav"><button class="btn ghost small" type="button" data-act="prev" aria-label="Previous month">‹</button><h2>${MONTHS[mo]} ${y}</h2><button class="btn ghost small" type="button" data-act="next" aria-label="Next month">›</button>
       <button class="btn ghost small" type="button" data-act="today">Today</button></div>
-      <div class="actions" style="margin:0">${lg?`<button class="btn ghost small" type="button" data-act="cal-from-lodge" data-n="${lg.n}">Open in my calendar</button>`:""}${canAdd&&UI.adding!==addKey?`<button class="btn small" type="button" data-act="add-ev" ${lg?`data-n="${lg.n}"`:""}>Add event</button>`:""}</div></div>
-    ${UI.adding===addKey?eventForm(lg?lg.n:null):""}
+      <div class="actions" style="margin:0">${lg?`<button class="btn ghost small" type="button" data-act="cal-from-lodge" data-n="${lg.n}">Open in my calendar</button>`:""}${canAdd&&UI.adding!==addKey?`<button class="btn small" type="button" data-act="add-ev" data-add="${esc(addKey)}">Add event</button>`:""}</div></div>
+    ${UI.adding===addKey?eventForm(sk):""}
     <div class="month">${DOWS.map(d=>`<div class="dow">${d}</div>`).join("")}${cells}</div>
     <p class="hint" style="margin:10px 0 0">Stated meetings fill in automatically from each lodge's meeting time.${signedIn()?"":" Members-only events are hidden until you sign in."}</p>
     <div style="margin-top:16px"><div class="actions" style="justify-content:space-between;margin:0 0 4px"><h3 class="sub" style="margin:0">${S.calDay?prettyDate(S.calDay):"This month"}</h3>${S.calDay?`<button class="linkbtn" type="button" data-act="allmonth">Show the whole month</button>`:""}</div>
@@ -1795,7 +1821,7 @@ function myWorld(){const s=new Set(myLodges());(S.follows[S.user]||[]).forEach(n
 function canSeePost(p){
   if(!signedIn()) return false;
   if(p.by===S.user) return true;
-  if(p.evId){const e=S.events.find(x=>x.id===p.evId);if(e&&e.vis==="members"){const l=byNum(e.n);if(!l||!canSeePrivate(l)) return false}}
+  if(p.evId){const e=S.events.find(x=>x.id===p.evId);if(e&&e.vis==="members"){if(e.k){if(!evMemberOf(e.k))return false}else{const l=byNum(e.n);if(!l||!canSeePrivate(l)) return false}}}
   if(p.board.t==="gl") return true;
   if(p.board.t==="group"){const g=gById(p.board.id);return !!g&&(grpMine(g)||grpManage(g))}
   if(p.board.t==="orient"||p.board.t==="valley"||p.board.t==="abody"||p.board.t==="ent"){const id=boardEntId(p.board);const mp=myProfile();return ((S.bodyFollows||{})[S.user]||[]).map(entById).some(f=>f&&entChain(f).includes(id))||((mp&&mp.ents)||[]).some(x=>!x.pending&&entById(x.id)&&entChain(entById(x.id)).includes(id))}
@@ -1826,10 +1852,10 @@ function rsvpHtml(e){
 }
 function evCard(p){
   const e=S.events.find(x=>x.id===p.evId); if(!e) return "";
-  const l=byNum(e.n),[,m,d]=e.date.split("-").map(Number);
+  const[,m,d]=e.date.split("-").map(Number);
   return `<div class="evcard"><div class="date"><b>${d}</b>${MONTHS[m-1].slice(0,3)} · ${DOWS[new Date(e.date+"T12:00").getDay()]}</div>
     <div style="min-width:0"><div class="ev-t">${esc(e.title)} ${e.vis==="members"?`<span class="chip acc">Members only</span>`:""}</div>
-    <div class="meta">${fmtTime(e.time)} · ${esc(lname(l))} · ${esc(e.type)}</div>${e.notes?`<div class="meta">${esc(e.notes)}</div>`:""}
+    <div class="meta">${fmtTime(e.time)} · ${esc(evWhere(e))} · ${esc(e.type)}</div>${e.notes?`<div class="meta">${esc(e.notes)}</div>`:""}
     <div class="acts" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;align-items:center">${rsvpHtml(e)}<button class="btn ghost small" type="button" data-act="ev-cal" data-id="${e.id}">View on calendar</button><a class="btn ghost small" href="${gcal(e)}" target="_blank" rel="noopener">Add to Google Calendar</a></div></div></div>`;
 }
 function postCard(p){
@@ -1933,6 +1959,7 @@ function groupPage(g){
   const seeRoster=mine||mng;
   return `${groupCrumbs(g)}<div class="panel detail"><div class="eyebrow">Trestle Board under ${esc(scopeName(par))}</div><h2 class="title">${esc(g.name)}</h2>${g.desc?`<p class="hint" style="margin:0 0 8px">${esc(g.desc)}</p>`:""}
   <div class="section"><h3 class="sub">Trestle Board</h3>${!seeRoster?`<p class="locked">🔒 Only people on this Trestle Board can see its posts.</p>`:ps.length?`<div class="stack" style="padding:0;gap:10px">${ps.map(postCard).join("")}</div>`:`<p class="hint">Nothing posted here yet. Posts here go to the people on this Trestle Board and show up on their own main Trestle Board.</p>`}${seeRoster?`<div class="actions" style="margin-top:10px"><button class="btn ghost small" type="button" data-act="group-board" data-id="${esc(g.id)}">Open ${esc(g.name)} Trestle Board</button></div>${canPost?"":`<p class="hint" style="margin:8px 0 0">Add yourself to this Trestle Board to post.</p>`}`:`${meP()?((g.requests||[]).includes(meP())?`<div class="actions"><span class="chip pilot">Requested</span><button class="btn ghost small" type="button" data-act="grp-req-cancel" data-id="${esc(g.id)}">Cancel request</button></div>`:`<div class="actions"><button class="btn small" type="button" data-act="grp-req" data-id="${esc(g.id)}">Request to join</button></div>`):""}`}</div>
+  ${seeRoster?`<div class="section"><h3 class="sub">Calendar</h3>${calendar({keys:["g:"+g.id],scope:"g:"+g.id})}</div>`:""}
   ${subgroupList("g:"+g.id)}
   </div>${groupCard(g)}`}
 const grpMine=g=>g.members.includes(meP());
@@ -1985,7 +2012,7 @@ function feedView(){
   return `<div class="stack" style="max-width:680px">
     ${feedTabs()}
     ${!(S.welcomed||{})[S.user]?`<div class="panel pad welcome"><div class="eyebrow">Welcome</div><h3 class="title" style="margin:2px 0 4px">One Texas. One Trestle Board.</h3><p class="hint" style="margin:0 0 10px">One simple place for your lodge, your district and every Texas Mason to stay in touch: posts, events, committees, messages and the Laws, all in one spot.</p><button class="btn small" type="button" data-act="welcome-ok">Got it</button></div>`:""}
-    ${L.some(canEdit)&&UI.adding!=="cal"?`<div class="actions" style="margin:0"><button class="btn ghost small" type="button" data-act="add-ev-feed">Add an event</button></div>`:""}${UI.adding==="cal"?eventForm(null):""}
+    ${manageableScopes().length&&UI.adding!=="cal"?`<div class="actions" style="margin:0"><button class="btn ghost small" type="button" data-act="add-ev-feed">Add an event</button></div>`:""}${UI.adding==="cal"?eventForm(null):""}
     <div><h2 class="title" style="margin:0 0 6px">${atG?esc(atG.name)+" Trestle Board":atD?"District "+esc(atD)+" Trestle Board":atB?esc(atB.name)+" Trestle Board":atL?esc(lname(atL))+" Trestle Board":"My Trestle Boards"}</h2>
       <p class="hint" style="margin:0">${atG?`Posts to this Trestle Board go to its people and show on their own main Trestle Board. <button class="linkbtn" type="button" data-act="group-open" data-id="${esc(atG.id)}">About this Trestle Board</button> · <button class="linkbtn" type="button" data-act="feed-all">Show all my boards</button>`:atD?`Posts to District ${esc(atD)}, seen by every lodge in the district. <button class="linkbtn" type="button" data-act="feed-all">Show all my boards</button>`:atB?`Posts to this ${atB.lvl==="orient"?"Scottish Rite board":atB.lvl==="valley"?"Valley and the Texas Scottish Rite":atB.lvl==="body"?"body, its Valley and the Texas Scottish Rite":"body, seen by its members and followers"}. <button class="linkbtn" type="button" data-act="feed-all">Show all my boards</button>`:atL?`Posts to this ${atL.gl?"board":"lodge, District "+esc(atL.d)+","} and the Grand Lodge. <button class="linkbtn" type="button" data-act="feed-all">Show all my boards</button>`:"Posts from your lodges, the lodges you follow, your district, and the Grand Lodge."}</p></div>
     ${can_.length?`<form class="panel pad" id="postform" style="display:grid;gap:10px">
@@ -2153,7 +2180,7 @@ document.addEventListener("click",e=>{
     case "rsvp-list":{S.openRsvp=S.openRsvp||{};S.openRsvp[t.dataset.id]=!S.openRsvp[t.dataset.id];render();break}
     case "cm-toggle":{S.openCm=S.openCm||{};S.openCm[t.dataset.post]=!S.openCm[t.dataset.post];render();if(S.openCm[t.dataset.post])document.querySelector(`[data-cmform="${t.dataset.post}"] input`)?.focus();break}
     case "del-cm":{const po=S.posts.find(x=>x.id===t.dataset.post);if(po){po.comments=(po.comments||[]).filter(c=>c.id!==t.dataset.cm)}render();break}
-    case "ev-cal":{const e=S.events.find(x=>x.id===t.dataset.id);if(!e)break;const[y,m]=e.date.split("-").map(Number);S.calY=y;S.calM=m-1;S.calDay=e.date;S.calBodies=[keyOf(e.n)];S.tab="cal";UI={editing:false,editProfile:false,adding:null,confirmDel:null};render();scrollTo(0,0);break}
+    case "ev-cal":{const e=S.events.find(x=>x.id===t.dataset.id);if(!e)break;const[y,m]=e.date.split("-").map(Number);S.calY=y;S.calM=m-1;S.calDay=e.date;S.calBodies=[evKeyOfScope(evScope(e))];S.tab="cal";UI={editing:false,editProfile:false,adding:null,confirmDel:null};render();scrollTo(0,0);break}
     case "feed-toggle":{const k=t.dataset.key,cur=[...(S.feedBoards||feedDefaultKeys())],i=cur.indexOf(k);if(i>=0)cur.splice(i,1);else cur.push(k);S.feedBoards=cur;render();break}
     case "draft-rm":{const k=t.dataset.k==="pic"?"pics":"files";DRAFT[k].splice(+t.dataset.i,1);refreshAttach();break}
     case "poll-on":DRAFT.poll=DRAFT.poll||["",""];refreshAttach();break;
@@ -2229,16 +2256,17 @@ document.addEventListener("click",e=>{
       if(pid&&pid!=="__manual"&&S.profiles[pid]){(S.profiles[pid].current||(S.profiles[pid].current=[])).unshift({title:o,body:bodyTitle(b),ref:{t:"e",id:b.id},year:String(new Date().getFullYear())})}
       toast(pid?`${o} saved`:`${o} is now vacant`);render();break}
     case "district":S.dist="";S.q="";S.dirFind=true;S.dirOpen=false;S.distPage=l.d;render();scrollTo(0,0);break;
-    case "add-ev":UI.adding=t.dataset.n?+t.dataset.n:"cal";render();document.getElementById("ev-title")?.focus();break;
+    case "add-ev":UI.adding=t.dataset.add||"cal";render();document.getElementById("ev-title")?.focus();break;
     case "cancel-ev":UI.adding=null;render();break;
     case "ask-del":UI.confirmDel=t.dataset.id;render();break;
     case "keep-ev":UI.confirmDel=null;render();break;
-    case "del-ev":{const ev=S.events.find(x=>x.id===t.dataset.id);if(ev&&canEdit(byNum(ev.n))){S.events=S.events.filter(x=>x.id!==ev.id);S.posts=S.posts.filter(x=>x.evId!==ev.id);if(S.rsvps)delete S.rsvps[ev.id];logIt(`deleted "${ev.title}" from ${lname(byNum(ev.n))}'s calendar`);audit(byNum(ev.n)&&byNum(ev.n).gl?"gl":"l:"+ev.n,`deleted the event "${ev.title}" (${ev.date})`);toast("Event deleted")}UI.confirmDel=null;render();break}
+    case "del-ev":{const ev=S.events.find(x=>x.id===t.dataset.id);if(ev&&evCanEdit(ev)){S.events=S.events.filter(x=>x.id!==ev.id);S.posts=S.posts.filter(x=>x.evId!==ev.id);if(S.rsvps)delete S.rsvps[ev.id];logIt(`deleted "${ev.title}" from ${evWhere(ev)}'s calendar`);audit(evScope(ev),`deleted the event "${ev.title}" (${ev.date})`);toast("Event deleted")}UI.confirmDel=null;render();break}
     case "prev":S.calM--;if(S.calM<0){S.calM=11;S.calY--}S.calDay=null;render();break;
     case "next":S.calM++;if(S.calM>11){S.calM=0;S.calY++}S.calDay=null;render();break;
     case "today":S.calY=today.getFullYear();S.calM=today.getMonth();S.calDay=TODAY;render();break;
     case "allmonth":S.calDay=null;render();break;
     case "cal-toggle":{const k=t.dataset.key,cur=[...calKeys()],i=cur.indexOf(k);if(i>=0)cur.splice(i,1);else cur.push(k);S.calBodies=cur;S.calDay=null;render();break}
+    case "cal-bar-toggle":S.calBarOpen=!S.calBarOpen;render();break;
     case "cal-reset":S.calBodies=null;S.calDay=null;render();break;
     case "cal-from-lodge":S.calBodies=[keyOf(+t.dataset.n)];S.calDay=null;S.tab="cal";UI={editing:false,editProfile:false,adding:null,confirmDel:null};render();break;
     case "edit-prof":UI.editProfile=true;render();break;
@@ -2263,12 +2291,13 @@ document.addEventListener("submit",e=>{
     UI.editing=false; render(); return;
   }
   if(f.id==="evform"){
-    const n=+v("ev-lodge"), l=byNum(n); if(!canEdit(l)) return;
-    const ev={id:"e"+Date.now().toString(36),n,title:v("ev-title"),type:v("ev-type"),date:v("ev-date"),time:v("ev-time"),vis:v("ev-vis"),notes:v("ev-notes")};
+    const sk=v("ev-scope"),isL=sk==="gl"||sk.startsWith("l:"),n=sk==="gl"?0:isL?+sk.slice(2):null;
+    if(isL?!canEdit(byNum(n)):!canManageScope(sk)) return;
+    const ev=Object.assign({id:"e"+Date.now().toString(36)},isL?{n}:{n:null,k:sk},{title:v("ev-title"),type:v("ev-type"),date:v("ev-date"),time:v("ev-time"),vis:v("ev-vis"),notes:v("ev-notes")});
     if(!ev.title||!ev.date){toast("Add a title and date");return}
-    S.events.push(ev); logIt(`added "${ev.title}" to ${lname(l)}'s calendar`);audit(l.gl?"gl":"l:"+l.n,`added the event "${ev.title}" (${ev.date})`);
-    S.posts.push({id:"p"+Date.now().toString(36)+"e",by:S.user,board:n===0?{t:"gl"}:{t:"lodge",id:n},text:`New event: ${ev.title}`,at:new Date().toISOString(),evId:ev.id});
-    UI.adding=null; toast(`Added to ${l.name}'s calendar and Trestle Board`); render(); return;
+    S.events.push(ev);logIt(`added "${ev.title}" to ${evWhere(ev)}'s calendar`);audit(sk,`added the event "${ev.title}" (${ev.date})`);
+    S.posts.push({id:"p"+Date.now().toString(36)+"e",by:S.user,board:scopeBoard(sk),text:`New event: ${ev.title}`,at:new Date().toISOString(),evId:ev.id});
+    UI.adding=null; toast(`Added to ${evWhere(ev)}'s calendar and Trestle Board`); render(); return;
   }
   if(f.dataset.cmform){const po=S.posts.find(x=>x.id===f.dataset.cmform);const txt=(f.elements.c.value||"").trim();if(!po||!txt||!canSeePost(po))return;
     (po.comments||(po.comments=[])).push({id:"c"+Date.now().toString(36),by:S.user,text:txt,at:new Date().toISOString()});S.openCm=S.openCm||{};S.openCm[po.id]=true;render();document.querySelector(`[data-cmform="${po.id}"] input`)?.focus();return}
