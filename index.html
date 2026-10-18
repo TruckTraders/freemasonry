@@ -756,6 +756,7 @@ function canApproveKey(key){
 const canManagePos=key=>canApproveKey(key)||(key[0]==="l"&&canEdit(byNum(+key.slice(2))));
 function pendingPeople(key){const m={};
   if(key[0]==="l"){const n=+key.slice(2);Object.entries(S.profiles).forEach(([id,p])=>{if(p.lodges.some(x=>x.n===n&&x.pending))m[id]={id,p,aff:true,claims:[]}})}
+  if(key[0]==='e'){const eid=key.slice(2);Object.entries(S.profiles).forEach(([id,p])=>{const x=entMem(p,eid);if(x&&x.pending)m[id]={id,p,aff:true,claims:[]}})}
   Object.entries(S.profiles).forEach(([id,p])=>(p.claims||[]).filter(c=>c.key===key).forEach(c=>{(m[id]=m[id]||{id,p,aff:false,claims:[]}).claims.push(c)}));
   return Object.values(m)}
 const myPendingAff=l=>{const mp=meP();return !!mp&&pendingPeople("l:"+l.n).some(x=>x.id===mp)};
@@ -850,7 +851,8 @@ function goTo(go){
 }
 function settleFirstClaims(){
   Object.values(S.profiles).forEach(p=>{if(p.sample&&!/^TEST /.test(p.name))p.name="TEST "+p.name});
-  realProfiles().forEach(([,p])=>p.lodges.forEach(x=>{if(x.pending&&x.n&&!hasRealAuth("l:"+x.n)){delete x.pending;x.since=x.since||String(new Date().getFullYear());x.approvedBy="first claim";x.approvedAt=new Date().toISOString()}}))}
+  realProfiles().forEach(([,p])=>p.lodges.forEach(x=>{if(x.pending&&x.n&&!hasRealAuth("l:"+x.n)){delete x.pending;x.since=x.since||String(new Date().getFullYear());x.approvedBy="first claim";x.approvedAt=new Date().toISOString()}}));
+  realProfiles().forEach(([,p])=>(p.ents||[]).forEach(x=>{if(x.pending&&!hasRealAuth("e:"+x.id)){delete x.pending;x.since=x.since||String(new Date().getFullYear());x.approvedBy="first member";x.approvedAt=new Date().toISOString()}}))}
 
 /* ---------- Square and compass logo: burning fuse ---------- */
 const TL_NS="http://www.w3.org/2000/svg",TL_PATHS=["M17 4 L7 27","M17 4 L27 27","M5 20 L17 30 L29 20"];
@@ -959,6 +961,11 @@ const cityRows=q=>{const o=S.cityOpen||{},out=[];
     if(!hit.length)return;out.push({cityNode:true,id:"city:"+c,city:c,name:c,ents});
     if(q||o[c])hit.forEach(e=>out.push(e))});return out};
 const bodyFollowing=id=>((S.bodyFollows||{})[S.user]||[]).includes(id);
+// Membership in appendant bodies (Valleys, Scottish Rite bodies, Chapters, Councils, Commanderies, Shrine temples). Works like lodge affiliation.
+const entMem=(p,id)=>((p&&p.ents)||[]).find(x=>x.id===id);
+const entRoster=id=>Object.entries(S.profiles).filter(([,p])=>{const x=entMem(p,id);return x&&!x.pending});
+const isEntMember=id=>{const p=myProfile();const x=entMem(p,id);return !!x&&!x.pending};
+const canSeeEntRoster=id=>signedIn()&&(isEntMember(id)||canManagePos("e:"+id)||can("editAnyLodge"));
 const bodyFiltered=()=>{const q=(S.bodyQ||"").trim().toLowerCase();
   if(S.bodyT==="York Rite")return cityRows(q);
   if(S.bodyT==="Scottish Rite"){const o=S.srOpen||{};
@@ -994,13 +1001,13 @@ function bodyDetail(){
     <div class="section"><h3 class="sub">Trestle Board</h3>${(()=>{if(!signedIn())return `<p class="locked">🔒 Sign in to see this Trestle Board.</p>`;const ps=S.posts.filter(p=>postReachesEnt(p,b)&&canSeePost(p)).sort((x,y)=>y.at.localeCompare(x.at)).slice(0,3);
       return `${ps.length?`<div class="stack" style="padding:0;gap:10px">${ps.map(postCard).join("")}</div>`:`<p class="hint">Nothing posted here yet. ${b.lvl==="orient"?"Posts to the Texas Scottish Rite reach every Valley and body.":b.lvl==="valley"?"Posts here also reach the Valley's four bodies, and the Texas Scottish Rite's posts reach this Valley.":"Posts here come from this body, its Valley and the Texas Scottish Rite."}</p>`}<div class="actions" style="margin-top:10px"><button class="btn ghost small" type="button" data-act="body-board" data-bid="${b.id}">Open ${esc(b.lvl==="valley"?bodyTitle(b):b.name)} Trestle Board</button></div>${fol?"":`<p class="hint" style="margin:8px 0 0">Follow this ${b.lvl==="orient"?"body":b.lvl==="valley"?"Valley":"body"} to see its posts, and everything above it, on your own Trestle Board.</p>`}`})()}</div>`:"";
   return `<div class="eyebrow">${esc(lvlName||b.t+(b.k?" · "+BKIND[b.k]:""))}</div><h2 class="title">${esc(bodyTitle(b))}</h2>
-  <div style="display:flex;gap:6px;flex-wrap:wrap"><span class="chip acc">${esc(b.t)}</span>${fol?`<span class="chip mem">Following</span>`:""}</div>
-  <div class="actions">${signedIn()?`<button class="btn ${fol?"ghost":""}" type="button" data-act="body-follow" data-bid="${b.id}">${fol?"Unfollow":"Follow"}</button>`:`<button class="btn ghost" type="button" disabled>Sign in to follow</button>`}</div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap"><span class="chip acc">${esc(b.t)}</span>${isEntMember(b.id)?`<span class="chip mem">Your body</span>`:""}${fol?`<span class="chip mem">Following</span>`:""}</div>
+  <div class="actions">${signedIn()?`<button class="btn ${fol?"ghost":""}" type="button" data-act="body-follow" data-bid="${b.id}">${fol?"Unfollow":"Follow"}</button>`:`<button class="btn ghost" type="button" disabled>Sign in to follow</button>`}${(()=>{if(!signedIn()||!myProfile())return "";const x=entMem(myProfile(),b.id);if(!x)return `<button class="btn" type="button" data-act="ent-join" data-bid="${b.id}">I'm a member</button>`;return x.pending?`<button class="btn ghost" type="button" disabled>Membership pending</button> <button class="btn ghost small" type="button" data-act="ent-leave" data-bid="${b.id}">Cancel request</button>`:`<button class="btn ghost small" type="button" data-act="ent-leave" data-bid="${b.id}">I'm not a member</button>`})()}</div>
   <dl class="facts"><dt>Body</dt><dd>${b.lvl==="orient"?"Texas Scottish Rite (top level)":b.lvl==="body"?esc(b.bn)+" · "+esc(b.degs)+" degrees":esc(b.t)+(b.k?" · "+esc(BKIND[b.k]):b.t==="Shrine"?" · Shrine temple":" · Valley")}</dd>
     ${b.n!=null?`<dt>Number</dt><dd>${b.n}</dd>`:""}<dt>City</dt><dd>${b.t==="York Rite"&&b.city&&CITYS.some(x=>x.c===b.city)?`<button class="linkbtn" type="button" data-act="city-open" data-city="${esc(b.city)}">${esc(b.city)}</button>`:b.city?esc(b.city):`<span class="unset">Not listed</span>`}</dd>
     <dt>Website</dt><dd>${web?`<a href="#" data-ext="${esc(web)}">${esc(b.web)}</a>`:`<span class="unset">Not set yet</span>`}</dd>
     <dt>Meeting</dt><dd><span class="unset">Not set yet</span></dd></dl>
-  ${srx}${bodyOfficers("e:"+b.id)}${pendSection("e:"+b.id,bodyTitle(b))}${posManager("e:"+b.id)}<div class="section"><h3 class="sub">Calendar</h3><p class="hint">Coming next. Events and posts from the bodies you follow will show up on your Trestle Board and Calendar next to your lodges.</p></div>
+  ${srx}${bodyOfficers("e:"+b.id)}${entRosterBlock(b)}${pendSection("e:"+b.id,bodyTitle(b))}${posManager("e:"+b.id)}<div class="section"><h3 class="sub">Calendar</h3><p class="hint">Coming next. Events and posts from the bodies you follow will show up on your Trestle Board and Calendar next to your lodges.</p></div>
   <p class="hint" style="margin-top:16px">Listing source: ${esc(src)}. Names and cities were copied from a web listing and may be out of date. Please report anything wrong.</p>`}
 const BLAND={"Shrine":["Shrine","Shriners temples across Texas, including the Shriners Hospitals mission."],"Scottish Rite":["Scottish Rite","The Texas Scottish Rite, its Valleys, and the four bodies in each Valley."],"York Rite":["York Rite","Royal Arch Chapters, Councils of Royal & Select Masters and Commanderies of Knights Templar."]};
 function bodiesLanding(fl){
@@ -1144,6 +1151,10 @@ function posManager(key){
     <label>Positions at this ${what}, one per line in order<textarea name="pos" rows="${Math.min(16,pos.length+1)}" style="width:100%">${esc(pos.join("\n"))}</textarea></label>
     <div><span class="eyebrow" style="margin:0">Positions that can approve requests</span><div style="display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:6px">${pos.map(x=>`<label style="display:flex;gap:6px;align-items:center;font-size:14px"><input type="checkbox" name="auth" value="${esc(x)}" ${auth.includes(x)?"checked":""}> ${esc(x)}</label>`).join("")}</div><span class="hint">If you add or rename positions, save first, then tick who can approve.</span></div>
     <div class="actions" style="margin:0"><button class="btn small" type="submit">Save positions</button><button class="btn ghost small" type="button" data-act="pos-reset" data-key="${esc(key)}">Reset to common</button></div></form></details></div>`}
+function entRosterBlock(b){
+  if(!signedIn())return "";
+  const ros=entRoster(b.id).sort((a,c)=>a[1].name.localeCompare(c[1].name));
+  return `<div class="section"><h3 class="sub">Members on the Trestle Board</h3><p class="hint" style="margin:0 0 10px">These are only the members who have joined the Trestle Board. They are not the full membership of ${esc(bodyTitle(b))}.</p>${canSeeEntRoster(b.id)?(ros.length?`<div class="cards">${ros.map(([id,p])=>`<button type="button" class="card" data-person="${id}"><span style="display:flex;gap:10px;align-items:center"><span class="avatar">${initials(p.name)}</span><span class="t">${esc(p.name)}</span></span><span class="isub">${esc((holds(p,"e:"+b.id)[0])||"Member")}</span></button>`).join("")}</div>`:`<p class="hint">No one has joined from ${esc(bodyTitle(b))} yet. Be the first. <b>One Texas. One Trestle Board.</b></p>`):`<p class="locked">🔒 Only members of ${esc(bodyTitle(b))} and its officers can see the roster.</p>`}</div>`}
 function bodyOfficers(key){
   if(!signedIn())return "";
   const rows=posList(key).map(pos=>({pos,who:Object.entries(S.profiles).filter(([,q])=>holds(q,key).includes(pos))})).filter(r=>r.who.length);
@@ -1647,7 +1658,7 @@ function profileDetail(id){
   <div class="section"><h3 class="sub">Mentoring</h3>${signedIn()?mentorBlock(id):`<p class="hint">Sign in to see mentoring.</p>`}</div>
   ${ed||(p.past||[]).some(c=>!tiedLodge(p,c))?`<div class="section"><h3 class="sub">${ed?"Past titles":"Other past titles"}</h3>${ed?resumeList(p.past,"past",ed):resumeList(p.past,"past",false,c=>!tiedLodge(p,c))}${ed?addRow("past"):""}</div>`:""}
   <div class="section"><h3 class="sub">Esoteric certificates</h3>${resumeList(p.certs,"certs",ed)}${ed?addRow("certs"):""}</div>
-  <div class="section"><h3 class="sub">Other Masonic bodies</h3>${resumeList(p.bodies,"bodies",ed)}${ed?addRow("bodies"):""}</div>
+  <div class="section"><h3 class="sub">Other Masonic bodies</h3>${(p.ents||[]).filter(x=>!x.pending&&entById(x.id)).length?`<p class="hint" style="margin:0 0 8px">Member of: ${(p.ents||[]).filter(x=>!x.pending&&entById(x.id)).map(x=>`<button type="button" class="linkbtn" data-act="ent-open" data-bid="${x.id}">${esc(bodyTitle(entById(x.id)))}</button>`).join(", ")}</p>`:""}${resumeList(p.bodies,"bodies",ed)}${ed?addRow("bodies"):""}</div>
   <div class="section"><h3 class="sub">Contact</h3>${ed?`<form class="edit" id="contactform">${!own?`<p class="hint" style="margin:0">You are editing ${esc(p.name)}'s profile as a Super Admin.</p>`:""}
       <label>Name<input type="text" id="c-name" value="${esc(p.name)}"></label>
       ${fields.filter(([f])=>f!=="address").map(([f,lab])=>`<div class="acct-row"><label>${lab}<input type="${f==="email"?"email":"tel"}" id="c-${f}" value="${esc(ct(p,f).v)}"></label><div style="display:grid;gap:4px;justify-items:end">${segHtml("pv-"+f,vOf(ct(p,f)))}</div></div>`).join("")}
@@ -1950,15 +1961,18 @@ document.addEventListener("click",e=>{
     case "welcome-ok":{S.welcomed=S.welcomed||{};S.welcomed[S.user]=1;render();break}
     case "signin":{S.user="mark";S.tab="feed";UI={editing:false,editProfile:false,adding:null,confirmDel:null};const ml=myLodges().filter(n=>n!==0);if(ml.length)S.sel=ml[0];if(me().profile)S.prof=me().profile;render();scrollTo(0,0);toast("Signed in as Mark (demo)");break}
     case "photo-remove":{saveAcct();const p=myProfile();ct(p,"photo").v="";logIt("removed their profile picture");render();break}
+    case "ent-join":{const pr=myProfile(),b=entById(t.dataset.bid);if(!pr||!b)break;if(!entMem(pr,b.id)){const now=new Date().toISOString();(pr.ents||(pr.ents=[])).push({id:b.id,since:"",pending:true,requested:now});settleFirstClaims();const x=entMem(pr,b.id);if(!x.pending){const a=(S.bodyFollows||(S.bodyFollows={}))[S.user]||(S.bodyFollows[S.user]=[]);if(!a.includes(b.id))a.push(b.id);logIt(`joined ${bodyTitle(b)}`);toast(`You are now listed as a member of ${bodyTitle(b)}`)}else{logIt(`asked to join ${bodyTitle(b)}`);toast(`Request sent. An officer of ${bodyTitle(b)} will approve it.`)}}render();break}
+    case "ent-leave":{const pr=myProfile(),b=entById(t.dataset.bid);if(!pr||!b)break;pr.ents=(pr.ents||[]).filter(x=>x.id!==b.id);logIt(`left ${bodyTitle(b)}`);toast(`Removed from ${bodyTitle(b)}`);render();break}
     case "aff-request":{const pr=myProfile(),lo=byNum(+t.dataset.n);if(!pr||!lo)break;if(!pr.lodges.some(x=>x.n===lo.n)){pr.lodges.push({n:lo.n,since:"",pending:true,requested:new Date().toISOString()});logIt(`requested to affiliate with ${lname(lo)}`);toast(`Request sent to ${lname(lo)}`)}render();break}
     case "req-approve":case "req-decline":{const key=t.dataset.key,pp=S.profiles[t.dataset.pid];if(!pp||!canApproveKey(key)||t.dataset.pid===meP()){toast("Only an officer with approval authority can do that");break}
       const ent=key[0]==="l"?lname(byNum(+key.slice(2))):bodyTitle(entById(key.slice(2)));
-      const li=key[0]==="l"?pp.lodges.findIndex(x=>x.n===+key.slice(2)&&x.pending):-1,mine=(pp.claims||[]).filter(c=>c.key===key);
+      const li=key[0]==="l"?pp.lodges.findIndex(x=>x.n===+key.slice(2)&&x.pending):-1,mine=(pp.claims||[]).filter(c=>c.key===key),ei=key[0]==="e"?(pp.ents||[]).findIndex(x=>x.id===key.slice(2)&&x.pending):-1;
       if(t.dataset.act==="req-approve"){
+        if(ei>=0){const x=pp.ents[ei];delete x.pending;x.since=String(new Date().getFullYear());x.approvedBy=meP()||me().label;x.approvedAt=new Date().toISOString()}
         if(li>=0){const x=pp.lodges[li];delete x.pending;x.since=String(new Date().getFullYear());x.approvedBy=meP()||me().label;x.approvedAt=new Date().toISOString()}
         mine.forEach(c=>{const kind=c.kind;pp[kind].push({title:c.title,body:c.body,ref:c.ref,year:c.year})});
         pp.claims=(pp.claims||[]).filter(c=>c.key!==key);logIt(`approved ${pp.name} at ${ent}`);toast(`Approved ${pp.name}`)}
-      else{if(li>=0)pp.lodges.splice(li,1);pp.claims=(pp.claims||[]).filter(c=>c.key!==key);logIt(`declined ${pp.name}'s request at ${ent}`);toast("Request declined")}
+      else{if(li>=0)pp.lodges.splice(li,1);if(ei>=0)pp.ents.splice(ei,1);pp.claims=(pp.claims||[]).filter(c=>c.key!==key);logIt(`declined ${pp.name}'s request at ${ent}`);toast("Request declined")}
       render();break}
     case "pos-reset":{const key=t.dataset.key;if(!canManagePos(key))break;if(S.positions)delete S.positions[key];if(S.authority)delete S.authority[key];logIt("reset the positions list to the common set");toast("Positions reset");render();break}
     case "follow":{const a=S.follows[S.user]||(S.follows[S.user]=[]);const i=a.indexOf(l.n);if(i>=0){a.splice(i,1);toast(`Unfollowed ${lname(l)}`)}else{a.push(l.n);toast(`Following ${lname(l)}`)}render();break}
