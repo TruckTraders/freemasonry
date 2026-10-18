@@ -678,7 +678,7 @@ const ymd=(y,m,d)=>`${y}-${pad(m+1)}-${pad(d)}`;
 const TODAY=ymd(today.getFullYear(),today.getMonth(),today.getDate());
 function fresh(){return{user:"public",tab:"feed",sel:304,q:"",dist:"",mq:"",prof:"p0",edits:{},manual:{},follows:{},
   roles:clone(DEFAULT_ROLES),profiles:clone(DEFAULT_PROFILES),events:clone(DEFAULT_EVENTS),log:[],
-  calY:today.getFullYear(),calM:today.getMonth(),calDay:null,calScope:"mine",posts:[],feedFilter:"all",postTo:""}}
+  calY:today.getFullYear(),calM:today.getMonth(),calDay:null,calScope:"mine",posts:[],feedFilter:"all",postTo:"",web:{}}}
 let S=Object.assign(fresh(),load()||{});
 for(const k in DEFAULT_ROLES){const r=S.roles[k];if(!r)continue;for(const[p] of PERMS){if(r.perms[p]===undefined&&DEFAULT_ROLES[k].perms[p])r.perms[p]=1}}
 if(S.manualV!==1){S.manual={};S.manualV=1}
@@ -990,6 +990,7 @@ function render(){
   v.innerHTML=({feed:feedView,dir:dirView,bodies:bodiesView,cal:calView,members:membersView,res:resView,admin:adminView,account:accountView,profile:profileView,messages:messagesView,card:cardView,drills:drillsView,monitor:monitorView,laws:lawsView,bylaws:bylawsView,mentor:mentorView})[S.tab]();
   if(S.tab==="messages") renderAcct();
   if(S.tab==="drills") drillMountNow();
+  {const ps=document.getElementById("post-to"),pw=document.getElementById("post-web-wrap");if(ps&&pw)pw.style.display=webOn(postScope(bFromKey(ps.value)))?"flex":"none"}
   tlHeader();
   const cur=v.querySelector('.item[aria-current=true]'); if(cur) cur.scrollIntoView({block:"nearest"});
   save();
@@ -1090,7 +1091,7 @@ function bodyEditForm(b){
     <label>Mailing address (optional, shows on the page only if filled in)<input type="text" id="bf-mail" value="${esc(b.mail||"")}" placeholder="PO Box, city, state, zip"></label>
     <label>Website (optional, shows on the page only if filled in)<input type="text" id="bf-web" value="${esc(b.web||"")}" placeholder="https://"></label>
     <div class="actions"><button class="btn" type="submit">Save changes</button><button class="btn ghost" type="button" data-act="body-edit-cancel">Cancel</button></div>
-  </form>${bodyOfficerManager(b)}${posManager("e:"+b.id)}${subgroupManager("e:"+b.id)}${auditBlock("e:"+b.id)}`}
+  </form>${bodyOfficerManager(b)}${posManager("e:"+b.id)}${websiteBlock("e:"+b.id,bodyTitle(b))}${subgroupManager("e:"+b.id)}${auditBlock("e:"+b.id)}`}
 const bManual=(b,o)=>((S.manualB||{})[b.id]||{})[o]||"";
 function bodyOfficerManager(b){
   const key="e:"+b.id,ros=entRoster(b.id).sort((a,c)=>a[1].name.localeCompare(c[1].name)),pos=posList(key);
@@ -1215,6 +1216,28 @@ function dupHits(name,email,exLodge,exApp,exPid){
     pp.lodges.filter(x=>x.n&&!x.pending&&x.n!==exLodge&&!(byNum(x.n)||{}).gl).forEach(x=>out.push({lodge:x.n,what:DTITLE[degP(pp)]||"Member",date:"",status:""}))});
   return out}
 const dupText=h=>{const lo=byNum(h.lodge);return `${lo?lname(lo):"Lodge "+h.lodge}: ${h.what}${h.date?", received "+h.date:""}${h.status?", "+h.status:""}`};
+/* ---------- Website feed: lets a lodge or body show its public posts and events on its own website ---------- */
+const EMBED_BASE="https://trucktraders.github.io/freemasonry/";
+const webOn=k=>!!((S.web||{})[k]&&S.web[k].on);
+const embedUrl=(f,k,base)=>(base||EMBED_BASE)+"?embed"+String.fromCharCode(61)+f+"&scope"+String.fromCharCode(61)+encodeURIComponent(k);
+const embedCode=(f,k,label)=>`<iframe src="${embedUrl(f,k)}" title="${label} ${f==="cal"?"calendar":"news"}" style="width:100%;border:0;min-height:520px" loading="lazy"></iframe>`;
+function websiteBlock(k,label){
+  if(!canManageScope(k))return "";
+  const on=webOn(k);
+  return `<div class="section"><h3 class="sub">Our website</h3><p class="hint" style="margin:0 0 10px">Turn this on and your officers can tick "Also show on our website" when they post or add an event. Then paste the code below into your website once, and anything ticked appears there by itself. Only posts and events someone ticked are shown, and events must be set to "Everyone". Turn it off and nothing shows.</p>
+  <div class="actions" style="margin:0 0 10px"><button class="btn small ${on?"":"ghost"}" type="button" data-act="web-toggle" data-k="${esc(k)}" aria-pressed="${on}">${on?"On. Officers can publish to the website":"Off. Nothing is published"}</button></div>
+  ${on?["posts","cal"].map(f=>`<div class="panel pad" style="display:grid;gap:6px;max-width:640px;margin-bottom:8px"><b>${f==="cal"?"Calendar":"News and posts"}</b><textarea readonly rows="3" style="font-family:monospace;font-size:12px" aria-label="Code for ${f==="cal"?"calendar":"posts"}">${esc(embedCode(f,k,label))}</textarea><div class="actions" style="margin:0;gap:6px"><button class="btn small" type="button" data-act="web-copy" data-f="${f}" data-k="${esc(k)}" data-label="${esc(label)}">Copy code</button><button class="btn ghost small" type="button" data-act="web-preview" data-f="${f}" data-k="${esc(k)}">Preview</button></div></div>`).join("")+`<p class="hint" style="margin:0">The code works once the site has its own server. Until then the preview shows what is saved in this browser only.</p>`:""}</div>`}
+function renderEmbed(f,k){
+  const on=webOn(k),esc2=esc;let body="";
+  if(!on)body=`<p style="opacity:.7">Nothing to show here yet.</p>`;
+  else if(f==="cal"){
+    const ev=S.events.filter(e=>e.web&&evScope(e)===k&&(e.vis||"public")==="public"&&e.date>=TODAY).sort((a,b)=>(a.date+(a.time||"")).localeCompare(b.date+(b.time||""))).slice(0,20);
+    body=ev.length?ev.map(e=>`<div class="ei"><b>${esc2(e.title)}</b><div class="d">${esc2(new Date(e.date+"T12:00").toLocaleDateString(undefined,{weekday:"long",month:"long",day:"numeric",year:"numeric"}))}${e.time?" at "+esc2(new Date("2000-01-01T"+e.time).toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"})):""}</div>${e.notes?`<div>${esc2(e.notes)}</div>`:""}</div>`).join(""):`<p style="opacity:.7">No upcoming events.</p>`}
+  else{
+    const ps=S.posts.filter(p=>p.web&&postScope(p.board)===k).sort((a,b)=>String(b.at).localeCompare(String(a.at))).slice(0,15);
+    body=ps.length?ps.map(p=>`<div class="ei"><div class="d">${esc2(new Date(p.at).toLocaleDateString(undefined,{month:"long",day:"numeric",year:"numeric"}))}</div><div style="white-space:pre-wrap">${esc2(p.text||"")}</div>${(p.pics||[]).slice(0,2).map(s=>`<img src="${esc2(typeof s==="string"?s:s.src||"")}" alt="" style="max-width:100%;border-radius:6px;margin-top:6px">`).join("")}</div>`).join(""):`<p style="opacity:.7">No news yet.</p>`}
+  document.body.innerHTML=`<style>body{margin:0;padding:12px;font:15px/1.5 system-ui,sans-serif;background:#fff;color:#1a1a1a}@media (prefers-color-scheme:dark){body{background:#12151c;color:#e8e8e8}}.ei{padding:12px 0;border-bottom:1px solid rgba(128,128,128,.3)}.d{opacity:.7;font-size:13px}.f{margin-top:10px;font-size:12px;opacity:.6}</style>${body}<div class="f">Powered by The Trestle Board</div>`;
+}
 function memberMatches(q,excludeIds){
   q=String(q||"").trim();if(!q)return [];
   const isE=q.includes("@"),qe=q.toLowerCase(),nn=normName(q),toks=nn.split(" ").filter(w=>w.length>1);
@@ -1351,7 +1374,7 @@ function editLodgeForm(l){
       ${moveOk?"":`<span class="hint">Only Grand Lodge level roles can move a lodge to another district.</span>`}</label>`}
     ${!l.gl&&can("mergeLodges")?`<label>Lodge status (Grand Lodge officers only)<select id="f-status">${LSTATUS.map(x=>`<option ${x===lstat(l)?"selected":""}>${x}</option>`).join("")}</select><span class="hint">Changes are logged. Lodges that are not Active show a red status tag everywhere.</span></label>`:""}
     <div class="actions"><button class="btn" type="submit">Save changes</button><button class="btn ghost" type="button" data-act="cancel">Cancel</button></div>
-  </form>${officerManager(l)}${l.gl?"":posManager("l:"+l.n)}${subgroupManager(l.gl?"gl":"l:"+l.n)}${auditBlock(l.gl?"gl":"l:"+l.n)}`;
+  </form>${officerManager(l)}${l.gl?"":posManager("l:"+l.n)}${websiteBlock(l.gl?"gl":"l:"+l.n,lname(l))}${subgroupManager(l.gl?"gl":"l:"+l.n)}${auditBlock(l.gl?"gl":"l:"+l.n)}`;
 }
 
 /* ---------- events UI ---------- */
@@ -1366,6 +1389,7 @@ function eventForm(sk){
     <div class="two"><label>Type<select id="ev-type">${TYPES.map(t=>`<option>${t}</option>`).join("")}</select></label>
       <label>Who can see it<select id="ev-vis"><option value="public">Everyone</option><option value="members">Members only</option></select></label></div>
     <label>Notes<textarea id="ev-notes" rows="2"></textarea></label>
+    ${ms.some(x=>webOn(x.k))||(sk&&webOn(sk))?`<label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="ev-web"> Also show on our website <span class="hint">(only if the board's website feed is on and the event is set to Everyone)</span></label>`:""}
     <div class="actions" style="margin:0"><button class="btn" type="submit">Add to calendar</button><button class="btn ghost" type="button" data-act="cancel-ev">Cancel</button></div>
   </form>`;
 }
@@ -2062,6 +2086,7 @@ function feedView(){
           <select id="post-to" aria-label="Post to">${grp("lodge","My lodges")}${grp("district","District")}${grp("gl","Grand Lodge")}${grp("orient","Texas Scottish Rite")}${grp("valley","Scottish Rite Valleys")}${grp("abody","Scottish Rite bodies")}${grp("ent","York Rite and Shrine")}${grp("group","Committees and groups")}</select></label>`}
         <button class="btn small" type="submit">Post</button></div>
       <p class="hint" style="margin:0" id="post-reach">Reaches: ${esc(bReach(bFromKey(S.postTo)))}.</p>
+      <label id="post-web-wrap" style="display:${S.postTo&&webOn(postScope(bFromKey(S.postTo)))?"flex":"none"};gap:8px;align-items:center"><input type="checkbox" id="post-web"> Also show on our website</label>
     </form>`:`<div class="panel pad hint">You can read the boards you follow, but there's no board you can post to yet.</div>`}
     ${atL||atB||atD||atG?"":feedBar()}
     ${shown.length?shown.map(postCard).join(""):`<div class="panel empty">${S.feedBoards&&!atL?"No posts on the boards you have turned on.":"No posts yet. Be the first to post to your lodge's Trestle Board. <b>One Texas. One Trestle Board.</b>"}</div>`}
@@ -2278,6 +2303,9 @@ document.addEventListener("click",e=>{
       toast(pid?`${o} saved`:`${o} is now vacant`);render();break}
     case "add-anyway":{const w=UI.addWarn,l=w&&byNum(w.lodge);if(w&&l&&canEdit(l)){createMember(l,w.nm,w.em,w.dg,w.dt);UI.addWarn=null;UI.memS=null;UI.memNew=null;toast(`${w.nm} added. Invitation emails go out once the site is live.`);render()}break}
     case "add-cancel":UI.addWarn=null;render();break;
+    case "web-toggle":{const k=t.dataset.k;if(!canManageScope(k))break;S.web=S.web||{};const was=webOn(k);S.web[k]={on:!was};audit(k,was?"turned off the website feed":"turned on the website feed");toast(was?"Website feed off":"Website feed on");render();break}
+    case "web-copy":{const k=t.dataset.k;if(!canManageScope(k)||!webOn(k))break;const code=embedCode(t.dataset.f,k,t.dataset.label||"");let ok=false;try{navigator.clipboard.writeText(code);ok=true}catch(_){}toast(ok?"Code copied. Paste it into your website.":"Select the code above and copy it");break}
+    case "web-preview":{const k=t.dataset.k;if(!webOn(k))break;window.open(embedUrl(t.dataset.f,k,location.origin+location.pathname),"_blank");break}
     case "off-yes":case "off-no":{const A=UI.offAsk,l=byNum(S.sel);if(!A||!l||!canEdit(l))break;
       if(t.dataset.act==="off-yes"){const p=S.profiles[t.dataset.pid];if(!p)break;
         if(!p.lodges.some(x=>x.n===l.n&&!x.pending)){if(["EA","FC","AP"].includes(degP(p))&&p.lodges.some(x=>x.n&&!x.pending)){toast("He belongs to another lodge only, so he can't be linked here");break}
@@ -2349,6 +2377,7 @@ document.addEventListener("submit",e=>{
     const sk=v("ev-scope"),isL=sk==="gl"||sk.startsWith("l:"),n=sk==="gl"?0:isL?+sk.slice(2):null;
     if(isL?!canEdit(byNum(n)):!canManageScope(sk)) return;
     const ev=Object.assign({id:"e"+Date.now().toString(36)},isL?{n}:{n:null,k:sk},{title:v("ev-title"),type:v("ev-type"),date:v("ev-date"),time:v("ev-time"),vis:v("ev-vis"),notes:v("ev-notes")});
+    {const wb=document.getElementById("ev-web");if(wb&&wb.checked&&webOn(sk)&&ev.vis==="public")ev.web=true}
     if(!ev.title||!ev.date){toast("Add a title and date");return}
     S.events.push(ev);logIt(`added "${ev.title}" to ${evWhere(ev)}'s calendar`);audit(sk,`added the event "${ev.title}" (${ev.date})`);
     S.posts.push({id:"p"+Date.now().toString(36)+"e",by:S.user,board:scopeBoard(sk),text:`New event: ${ev.title}`,at:new Date().toISOString(),evId:ev.id});
@@ -2440,6 +2469,7 @@ document.addEventListener("submit",e=>{
     const board=bFromKey(v("post-to")); if(!boardsICanPost().some(b=>bKey(b)===bKey(board))){toast("You can't post to that board");return}
     const np={id:"p"+Date.now().toString(36),by:S.user,board,text,at:new Date().toISOString()};
     if(DRAFT.pics.length)np.pics=DRAFT.pics;if(DRAFT.files.length)np.files=DRAFT.files;if(poll)np.poll=poll;
+    {const wb=document.getElementById("post-web");if(wb&&wb.checked&&webOn(postScope(board))&&!poll){np.web=true}}
     DRAFT.pics=[];DRAFT.files=[];DRAFT.poll=null;S.posts.push(np);
     S.postTo=bKey(board); logIt(`posted to the ${bName(board)} Trestle Board`); toast(`Posted to ${bName(board)}`); render(); return;
   }
@@ -2465,7 +2495,7 @@ document.addEventListener("change",e=>{
   if(t.id==="demo-degree"){const p=myProfile();if(p){p.degree=t.value}render();return}
   if(t.id==="post-photos"){const fs=[...t.files];t.value="";(async()=>{for(const f of fs){if(DRAFT.pics.length>=6){toast("Up to 6 photos per post");break}try{DRAFT.pics.push(await readPhoto(f))}catch(e){toast("That file isn't an image I can read")}}refreshAttach()})();return}
   if(t.id==="post-files"){const f=t.files[0];t.value="";if(!f)return;if(f.size>400*1024){toast("Files in the demo are limited to 400 KB");return}if(DRAFT.files.length>=3){toast("Up to 3 files per post");return}const r=new FileReader();r.onload=()=>{DRAFT.files.push({name:f.name,size:f.size,url:r.result});refreshAttach()};r.readAsDataURL(f);return}
-  if(t.id==="post-to"){S.postTo=t.value;const r=document.getElementById("post-reach");if(r)r.textContent="Reaches: "+bReach(bFromKey(t.value))+".";save();return}
+  if(t.id==="post-to"){S.postTo=t.value;{const w=document.getElementById("post-web-wrap");if(w)w.style.display=webOn(postScope(bFromKey(t.value)))?"flex":"none"}const r=document.getElementById("post-reach");if(r)r.textContent="Reaches: "+bReach(bFromKey(t.value))+".";save();return}
   if(t.id==="feed-filter"){S.feedFilter=t.value;const fv=t.value;let k="";
     if(fv.startsWith("at:")){const n=+fv.slice(3);k=n===0?"gl":"l:"+n}
     else if(fv.startsWith("ad:"))k="d:"+fv.slice(3);
@@ -2497,6 +2527,6 @@ document.addEventListener("input",e=>{
 });
 document.addEventListener("keydown",e=>{if(e.key==="Escape"){if(UI.menu){UI.menu=false;renderAcct()}if(UI.navMenu){UI.navMenu=null;tabs()}}});
 document.getElementById("reset").addEventListener("click",()=>{const keepLog=S.audit;S=fresh();if(keepLog)S.audit=keepLog;UI={editing:false,editProfile:false,adding:null,confirmDel:null};try{localStorage.removeItem(KEY)}catch(e){}render();toast("Demo reset")});
-render();tlSplash();
+{const q=new URLSearchParams(location.search),ef=q.get("embed"),es=q.get("scope");if(ef&&es&&(ef==="posts"||ef==="cal")){renderEmbed(ef,es)}else{render();tlSplash()}}
 document.addEventListener("input",e=>{const t=e.target;if(t.id==="mon-q"){S.monQ=t.value;const r=document.getElementById("mon-res");if(r)r.innerHTML=monResults();return}if(t.classList&&t.classList.contains("poll-opt")&&DRAFT.poll)DRAFT.poll[+t.dataset.i]=t.value});
 </script>
