@@ -1174,7 +1174,7 @@ function lodgeDetail(){
   </dl>
   <div class="section"><h3 class="sub">Calendar</h3>${lodgeCal(l)}</div>
   ${bylawsBlock(l)}${l.gl?"":`<div class="section"><h3 class="sub">Officers</h3>${canSeePrivate(l)?officerList(l):`<p class="locked">🔒 Only members of ${esc(lname(l))} and the district officers over it can see the officers.</p>`}</div>`}
-  ${l.gl?"":pendSection("l:"+l.n,lname(l))}${l.gl?"":posManager("l:"+l.n)}
+  ${l.gl?"":pendSection("l:"+l.n,lname(l))}
   <div class="section"><h3 class="sub">${l.gl?"Grand Lodge officers":"Members on the Trestle Board"}</h3>${l.gl?"":`<p class="hint" style="margin:0 0 10px">These are only the members who have joined the Trestle Board. They are not the lodge's full membership.</p>`}${l.gl||canSeePrivate(l)
     ?(roster.length?`<div class="cards">${roster.map(([id,p])=>personCard(id,p,l.n)).join("")}</div>`:`<p class="hint">No ${l.gl?"officers":"members of this lodge"} have joined the Trestle Board yet.${l.gl?"":" Be the first from this lodge. <b>One Texas. One Trestle Board.</b>"}</p>`)
     :`<p class="locked">🔒 Only members of ${esc(lname(l))} and the district officers over it can see the roster.</p>`}</div>
@@ -1200,7 +1200,7 @@ function editLodgeForm(l){
       ${moveOk?"":`<span class="hint">Only Grand Lodge level roles can move a lodge to another district.</span>`}</label>`}
     ${!l.gl&&can("mergeLodges")?`<label>Lodge status (Grand Lodge officers only)<select id="f-status">${LSTATUS.map(x=>`<option ${x===lstat(l)?"selected":""}>${x}</option>`).join("")}</select><span class="hint">Changes are logged. Lodges that are not Active show a red status tag everywhere.</span></label>`:""}
     <div class="actions"><button class="btn" type="submit">Save changes</button><button class="btn ghost" type="button" data-act="cancel">Cancel</button></div>
-  </form>${officerManager(l)}`;
+  </form>${officerManager(l)}${l.gl?"":posManager("l:"+l.n)}`;
 }
 
 /* ---------- events UI ---------- */
