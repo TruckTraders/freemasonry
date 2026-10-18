@@ -1856,10 +1856,17 @@ function feedDefaultKeys(){
   [...eids].map(entById).filter(Boolean).forEach(e=>entChain(e).slice().reverse().forEach(id=>{const x=entById(id);if(x)add(entBoardKey(x))}));
   myGroups().forEach(g=>add("g:"+g.id));return ks;
 }
+function feedBarGroup(k){
+  if(k.startsWith("l:"))return "Lodges";if(k.startsWith("d:")||k==="gl")return "Districts and Grand Lodge";if(k.startsWith("g:"))return "Committees";
+  const e=k==="or"?entById("sr-texas"):entById(k.slice(2));return e?e.t:"Other"}
 function feedBar(){
   const def=feedDefaultKeys(),on=S.feedBoards||def,opts=[...def];on.forEach(k=>{if(!opts.includes(k))opts.push(k)});
-  return `<div style="display:grid;gap:8px"><div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center"><button type="button" class="btn small ${S.feedBoards?"ghost":""}" data-act="feed-reset">All my boards</button><span class="hint" style="margin:0">${S.feedBoards?"Custom view":"Your lodges, your districts and the Grand Lodge"}</span></div>
-    <div style="display:flex;flex-wrap:wrap;gap:8px">${opts.map(k=>{const a=on.includes(k);return `<button type="button" class="btn small ${a?"":"ghost"}" data-act="feed-toggle" data-key="${esc(k)}" aria-pressed="${a}">${esc(bodyLabel(k))}</button>`}).join("")}</div>${myGroups().length?`<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center"><span class="hint" style="margin:0">Open a committee Trestle Board:</span>${myGroups().map(g=>`<button type="button" class="linkbtn" data-act="group-open" data-id="${esc(g.id)}">${esc(g.name)}</button>`).join(" · ")}</div>`:""}</div>`;
+  const open=!!S.feedBarOpen,order=["Lodges","Districts and Grand Lodge","Scottish Rite","York Rite","Shrine","Committees","Other"],grp={};
+  opts.forEach(k=>{const g=feedBarGroup(k);(grp[g]=grp[g]||[]).push(k)});
+  const cnt=opts.filter(k=>on.includes(k)).length;
+  return `<div style="display:grid;gap:10px"><div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center"><button type="button" class="btn small ${S.feedBoards?"ghost":""}" data-act="feed-reset">All my boards</button><span class="hint" style="margin:0">Showing ${cnt} of ${opts.length} boards</span><button type="button" class="btn ghost small" data-act="feed-bar-toggle" aria-expanded="${open}">${open?"Hide the list":"Choose boards"}</button></div>
+    ${open?order.filter(g=>grp[g]).map(g=>`<div style="display:grid;gap:6px"><span class="eyebrow" style="margin:0">${esc(g)}</span><div style="display:flex;flex-wrap:wrap;gap:6px">${grp[g].map(k=>{const a=on.includes(k);return `<button type="button" class="btn small ${a?"":"ghost"}" data-act="feed-toggle" data-key="${esc(k)}" aria-pressed="${a}">${esc(bodyLabel(k))}</button>`}).join("")}</div></div>`).join(""):""}
+    ${myGroups().length?`<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center"><span class="hint" style="margin:0">Open a committee Trestle Board:</span>${myGroups().map(g=>`<button type="button" class="linkbtn" data-act="group-open" data-id="${esc(g.id)}">${esc(g.name)}</button>`).join(" · ")}</div>`:""}</div>`;
 }
 const DRAFT={pics:[],files:[],poll:null};
 const fsize=n=>n>1048576?(n/1048576).toFixed(1)+" MB":Math.max(1,Math.round(n/1024))+" KB";
@@ -2186,6 +2193,7 @@ document.addEventListener("click",e=>{
     case "grp-req-cancel":{const g=(S.groups||[]).find(x=>x.id===t.dataset.id);if(!g)break;g.requests=(g.requests||[]).filter(x=>x!==meP());render();break}
     case "grp-approve":{const g=(S.groups||[]).find(x=>x.id===t.dataset.id);if(!g||!grpManage(g))break;const id=t.dataset.pid;g.requests=(g.requests||[]).filter(x=>x!==id);if(!g.members.includes(id)){g.members.push(id);audit("g:"+g.id,`approved ${pname(id)} to join this Trestle Board`)}toast(pname(id)+" added");render();break}
     case "grp-deny":{const g=(S.groups||[]).find(x=>x.id===t.dataset.id);if(!g||!grpManage(g))break;g.requests=(g.requests||[]).filter(x=>x!==t.dataset.pid);audit("g:"+g.id,`declined ${pname(t.dataset.pid)}'s request to join`);render();break}
+    case "feed-bar-toggle":S.feedBarOpen=!S.feedBarOpen;render();break;
     case "feed-reset":S.feedBoards=null;render();break;
     case "post-edit":{const ep=S.posts.find(x=>x.id===t.dataset.id);if(ep&&ep.by===S.user&&!ep.evId){UI.editPost=ep.id;render()}break}
     case "post-edit-cancel":UI.editPost=null;render();break;
