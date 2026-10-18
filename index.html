@@ -1838,8 +1838,8 @@ function postCard(p){
     <div style="display:flex;gap:10px;align-items:center">${w.av}
       <div style="min-width:0;flex:1"><b>${esc(w.name)}</b> <span class="isub">${p.evId?"added an event · ":"· "}${ago(p.at)}</span><br>
       <span class="chip ${p.board.t==="gl"?"acc":p.board.t==="district"?"pilot":"mem"}">${esc(bName(p.board))}</span> <span class="isub">${esc(bReach(p.board))}</span></div>
-      ${canDel?`<button class="xbtn" type="button" data-act="del-post" data-id="${p.id}">Delete</button>`:""}</div>
-    ${p.evId?evCard(p):`<div style="white-space:pre-wrap;overflow-wrap:anywhere">${linkify(p.text)}</div>${postExtras(p)}`}
+      ${mine&&!p.evId&&UI.editPost!==p.id?`<button class="xbtn" type="button" data-act="post-edit" data-id="${p.id}">Edit</button>`:""}${canDel?`<button class="xbtn" type="button" data-act="del-post" data-id="${p.id}">Delete</button>`:""}</div>
+    ${p.evId?evCard(p):UI.editPost===p.id?`<form data-editpost="${p.id}" style="display:grid;gap:8px"><textarea name="t" rows="4" aria-label="Edit your post">${esc(p.text)}</textarea><div class="actions" style="margin:0"><button class="btn small" type="submit">Save</button><button class="btn ghost small" type="button" data-act="post-edit-cancel">Cancel</button></div></form>${postExtras(p)}`:`<div style="white-space:pre-wrap;overflow-wrap:anywhere">${linkify(p.text)}</div>${p.edited?`<span class="isub">Edited ${esc(ago(p.edited))}</span>`:""}${postExtras(p)}`}
     <div class="rxrow">${rxBar(p,p.id)}<button type="button" class="rx ${open?"on":""}" data-act="cm-toggle" data-post="${p.id}" aria-expanded="${open}">💬 ${cms.length?`${cms.length} ${cms.length===1?"comment":"comments"}`:"Comment"}</button></div>
     ${open?`<div class="cmlist">${cms.map(c=>commentHtml(p,c)).join("")}
       <form class="cmform" data-cmform="${p.id}"><input type="text" name="c" placeholder="Write a comment..." aria-label="Write a comment" autocomplete="off"><button class="btn small" type="submit">Post</button></form></div>`:""}</article>`;
@@ -2182,6 +2182,8 @@ document.addEventListener("click",e=>{
     case "grp-approve":{const g=(S.groups||[]).find(x=>x.id===t.dataset.id);if(!g||!grpManage(g))break;const id=t.dataset.pid;g.requests=(g.requests||[]).filter(x=>x!==id);if(!g.members.includes(id)){g.members.push(id);audit("g:"+g.id,`approved ${pname(id)} to join this Trestle Board`)}toast(pname(id)+" added");render();break}
     case "grp-deny":{const g=(S.groups||[]).find(x=>x.id===t.dataset.id);if(!g||!grpManage(g))break;g.requests=(g.requests||[]).filter(x=>x!==t.dataset.pid);audit("g:"+g.id,`declined ${pname(t.dataset.pid)}'s request to join`);render();break}
     case "feed-reset":S.feedBoards=null;render();break;
+    case "post-edit":{const ep=S.posts.find(x=>x.id===t.dataset.id);if(ep&&ep.by===S.user&&!ep.evId){UI.editPost=ep.id;render()}break}
+    case "post-edit-cancel":UI.editPost=null;render();break;
     case "del-post":{const dp=S.posts.find(p=>p.id===t.dataset.id);if(dp){const w=who(dp.by);audit(postScope(dp.board),`deleted a post by ${w.name}`)}}S.posts=S.posts.filter(p=>p.id!==t.dataset.id);toast("Post deleted");render();break;
     case "res":toast(`${t.dataset.res} is planned`);break;
     case "off-set":{const l=byNum(S.sel);if(!l||!canEdit(l))break;const o=OFFICES[+t.dataset.i],pid=(document.getElementById("off-"+t.dataset.i)||{}).value||"";
@@ -2271,6 +2273,9 @@ document.addEventListener("submit",e=>{
     const hits=dupHits(nm,em,l.n,null,null);
     if(hits.length){UI.addWarn={nm,em,dg,dt,lodge:l.n,hits};render();return}
     UI.addWarn=null;createMember(l,nm,em,dg,dt);toast(`${nm} added. Invitation emails go out once the site is live.`);render();return}
+  if(f.dataset.editpost){const ep=S.posts.find(x=>x.id===f.dataset.editpost);if(!ep||ep.by!==S.user)return;const tx=(new FormData(f).get("t")||"").trim();
+    if(!tx&&!(ep.pics&&ep.pics.length)&&!(ep.files&&ep.files.length)&&!ep.poll){toast("A post can't be empty. Delete it instead.");return}
+    if(tx!==ep.text){ep.text=tx;ep.edited=new Date().toISOString()}UI.editPost=null;toast("Post updated");render();return}
   if(f.id==="bodyeditform"){const b=entById(f.dataset.bid);if(!b||!canManageScope("e:"+b.id))return;const v=i=>(document.getElementById(i).value||"").trim();
     const next={name:v("bf-name"),meet:v("bf-meet"),addr:v("bf-addr"),city:v("bf-city"),phone:v("bf-phone"),email:v("bf-email"),mail:v("bf-mail"),web:v("bf-web")};
     if(!next.name){toast("A name is required");return}
