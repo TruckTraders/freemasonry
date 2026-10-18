@@ -772,6 +772,27 @@ const MONTHS=["January","February","March","April","May","June","July","August",
 const DOWS=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 
 function toast(msg){const t=document.getElementById("toast");t.textContent=msg;t.hidden=false;clearTimeout(toast._t);toast._t=setTimeout(()=>t.hidden=true,2200)}
+const _ch=s=>{let h1=0xdeadbeef,h2=0x41c6ce57;for(let i=0;i<s.length;i++){const c=s.charCodeAt(i);h1=Math.imul(h1^c,2654435761);h2=Math.imul(h2^c,1597334677)}h1=Math.imul(h1^(h1>>>16),2246822507)^Math.imul(h2^(h2>>>13),3266489909);h2=Math.imul(h2^(h2>>>16),2246822507)^Math.imul(h1^(h1>>>13),3266489909);return (4294967296*(2097151&h2)+(h1>>>0)).toString(36)};
+const _ah=e=>_ch([e.prev,e.n,e.at,e.by,e.who,e.k,e.text].join("|"));
+function audit(k,text){
+  if(!k||!text)return;const a=S.audit||(S.audit=[]);const prev=a.length?a[a.length-1].h:"genesis";
+  const pr=S.user&&S.profiles&&me&&me().profile?S.profiles[me().profile]:null;
+  const e={n:a.length+1,at:new Date().toISOString(),by:S.user||"system",who:(pr&&pr.name)||(S.user&&me()?me().label:"System"),k,text:String(text).slice(0,400),prev};e.h=_ah(e);a.push(e)}
+function auditBroken(){const a=S.audit||[];let prev="genesis";for(let i=0;i<a.length;i++){const e=a[i];if(e.n!==i+1||e.prev!==prev||e.h!==_ah(e))return i+1;prev=e.h}return 0}
+function canSeeAudit(k){
+  if(!signedIn())return false;if(can("editAnyLodge")||canManageScope(k))return true;
+  if(k==="gl")return false;
+  if(k.startsWith("l:")){const l=byNum(+k.slice(2));return !!l&&isMember(l)&&can("membersArea")}
+  if(k.startsWith("e:"))return isEntMember(k.slice(2));
+  if(k.startsWith("d:"))return me().district===k.slice(2);
+  if(k.startsWith("g:")){const g=gById(k.slice(2));return !!g&&grpMine(g)}
+  return false}
+const postScope=b=>b.t==="gl"?"gl":b.t==="lodge"?"l:"+b.id:b.t==="district"?"d:"+b.id:b.t==="group"?"g:"+b.id:"e:"+boardEntId(b);
+function auditBlock(k){
+  if(!canSeeAudit(k))return "";
+  const all=(S.audit||[]).filter(e=>e.k===k).slice().reverse(),more=UI.auditMore===k,rows=more?all:all.slice(0,15),bad=auditBroken();
+  return `<div class="section"><h3 class="sub">Activity log</h3><p class="hint" style="margin:0 0 8px">A permanent record of what happens on this Trestle Board, not the boards under it. Nobody can edit or remove an entry, including Super Admins. ${bad?`<b style="color:#b3261e">Warning: this log has been altered. The record breaks at entry ${bad}.</b>`:`<span class="chip mem">Record verified</span>`}</p>
+  ${rows.length?`<ul class="resume">${rows.map(e=>`<li><span class="what" style="min-width:150px">${esc(new Date(e.at).toLocaleString([], {month:"short",day:"numeric",year:"numeric",hour:"numeric",minute:"2-digit"}))}</span><span><b>${esc(e.who)}</b> ${esc(e.text)}</span></li>`).join("")}</ul>${all.length>15?`<button class="linkbtn" type="button" data-act="audit-more" data-k="${esc(k)}">${more?"Show fewer":"Show all "+all.length+" entries"}</button>`:""}`:`<p class="hint">Nothing recorded yet.</p>`}</div>`}
 function logIt(text){S.log.unshift({t:new Date().toISOString(),who:me().label,text});S.log=S.log.slice(0,60)}
 
 /* ---------- events ---------- */
@@ -1007,7 +1028,7 @@ function bodyDetail(){
     ${b.n!=null?`<dt>Number</dt><dd>${b.n}</dd>`:""}<dt>City</dt><dd>${b.t==="York Rite"&&b.city&&CITYS.some(x=>x.c===b.city)?`<button class="linkbtn" type="button" data-act="city-open" data-city="${esc(b.city)}">${esc(b.city)}</button>`:b.city?esc(b.city):`<span class="unset">Not listed</span>`}</dd>
     <dt>Website</dt><dd>${web?`<a href="#" data-ext="${esc(web)}">${esc(b.web)}</a>`:`<span class="unset">Not set yet</span>`}</dd>
     <dt>Meeting</dt><dd><span class="unset">Not set yet</span></dd></dl>
-  ${mngBlock("e:"+b.id)}${srx}${entBoardSection(b,fol)}${subgroupList("e:"+b.id)}${bodyOfficers("e:"+b.id)}${entRosterBlock(b)}${pendSection("e:"+b.id,bodyTitle(b))}${posManager("e:"+b.id)}<div class="section"><h3 class="sub">Calendar</h3><p class="hint">Coming next. Events and posts from the bodies you follow will show up on your Trestle Board and Calendar next to your lodges.</p></div>
+  ${mngBlock("e:"+b.id)}${srx}${entBoardSection(b,fol)}${subgroupList("e:"+b.id)}${bodyOfficers("e:"+b.id)}${entRosterBlock(b)}${auditBlock("e:"+b.id)}${pendSection("e:"+b.id,bodyTitle(b))}${posManager("e:"+b.id)}<div class="section"><h3 class="sub">Calendar</h3><p class="hint">Coming next. Events and posts from the bodies you follow will show up on your Trestle Board and Calendar next to your lodges.</p></div>
   <p class="hint" style="margin-top:16px">Listing source: ${esc(src)}. Names and cities were copied from a web listing and may be out of date. Please report anything wrong.</p>`}
 const BLAND={"Shrine":["Shrine","Shriners temples across Texas, including the Shriners Hospitals mission."],"Scottish Rite":["Scottish Rite","The Texas Scottish Rite, its Valleys, and the four bodies in each Valley."],"York Rite":["York Rite","Royal Arch Chapters, Councils of Royal & Select Masters and Commanderies of Knights Templar."]};
 function bodiesLanding(fl){
@@ -1097,7 +1118,7 @@ function districtDetail(d){
   <div style="display:flex;gap:6px;flex-wrap:wrap"><span class="chip acc">${ls.length} ${ls.length===1?"lodge":"lodges"}</span></div>
   ${real?mngBlock("d:"+d):""}${real?subgroupList("d:"+d):""}
   ${real?`<div class="section"><h3 class="sub">Trestle Board</h3>${!signedIn()?`<p class="locked">🔒 Sign in to see this Trestle Board.</p>`:`${posts.length?`<div class="stack" style="padding:0;gap:10px">${posts.map(postCard).join("")}</div>`:`<p class="hint">Nothing posted to the District ${esc(d)} board yet. Posts here reach every lodge in the district.</p>`}<div class="actions" style="margin-top:10px"><button class="btn ghost small" type="button" data-act="district-board" data-d="${esc(d)}">Open District ${esc(d)} Trestle Board</button></div>${mayPost?"":`<p class="hint" style="margin:8px 0 0">District officers can post here.</p>`}`}</div>`:""}
-  <div class="section"><h3 class="sub">Lodges</h3><div class="cards">${ls.map(l=>`<button type="button" class="card" data-lodge="${l.n}"><span class="t">${esc(lname(l))}</span><span class="isub">${esc(l.city||"—")}${l.meet?" · "+esc(l.meet):""}</span></button>`).join("")}</div></div>`}
+  ${real?auditBlock("d:"+d):""}<div class="section"><h3 class="sub">Lodges</h3><div class="cards">${ls.map(l=>`<button type="button" class="card" data-lodge="${l.n}"><span class="t">${esc(lname(l))}</span><span class="isub">${esc(l.city||"—")}${l.meet?" · "+esc(l.meet):""}</span></button>`).join("")}</div></div>`}
 function item(l){
   const tags=[isMember(l)?`<span class="chip mem">${l.gl?"Officer":"Member"}</span>`:following(l)?`<span class="chip">Following</span>`:"",l.gl?`<span class="chip acc">Grand Lodge</span>`:l.pilot?`<span class="chip pilot">Pilot</span>`:"",lstatChip(l)].join(" ");
   return `<button type="button" class="item" data-lodge="${l.n}" aria-current="${S.sel===l.n}"><span class="num">${l.gl?"GL":l.n}</span>
@@ -1127,7 +1148,7 @@ function dupHits(name,email,exLodge,exApp,exPid){
   return out}
 const dupText=h=>{const lo=byNum(h.lodge);return `${lo?lname(lo):"Lodge "+h.lodge}: ${h.what}${h.date?", received "+h.date:""}${h.status?", "+h.status:""}`};
 function createMember(l,nm,em,dg,date){
-  const id="p"+Date.now().toString(36);
+  const id="p"+Date.now().toString(36);audit(l.gl?"gl":"l:"+l.n,dg==="AP"?`received a petition from ${nm}`:`added ${nm} to the Trestle Board roster`);
   S.profiles[id]={name:nm,degree:dg,invited:true,invitedBy:meP()||S.user,invitedAt:new Date().toISOString(),lodges:[{n:l.n,since:String(new Date().getFullYear())}],current:[],past:[],certs:[],bodies:[],contact:{email:C(em,"lodge"),phone:C("","private"),city:C("","members")}};
   if(dg==="AP")ensureApps().push({id:"a"+Date.now().toString(36),lodge:l.n,pid:id,name:nm,email:em,date:date||TODAY,status:"Received",by:meP()||S.user});
   return id}
@@ -1219,6 +1240,7 @@ function lodgeDetail(){
   <div class="section"><h3 class="sub">${l.gl?"Grand Lodge officers":"Members on the Trestle Board"}</h3>${l.gl?"":`<p class="hint" style="margin:0 0 10px">These are only the members who have joined the Trestle Board. They are not the lodge's full membership.</p>`}${l.gl||canSeePrivate(l)
     ?(roster.length?`<div class="cards">${roster.map(([id,p])=>personCard(id,p,l.n)).join("")}</div>`:`<p class="hint">No ${l.gl?"officers":"members of this lodge"} have joined the Trestle Board yet.${l.gl?"":" Be the first from this lodge. <b>One Texas. One Trestle Board.</b>"}</p>`)
     :`<p class="locked">🔒 Only members of ${esc(lname(l))} and the district officers over it can see the roster.</p>`}</div>
+  ${auditBlock(l.gl?"gl":"l:"+l.n)}
   <div class="section"><h3 class="sub">Trestle Board</h3>${(()=>{const ps=S.posts.filter(p=>postReachesLodge(p,l)&&canSeePost(p)).sort((a,b)=>b.at.localeCompare(a.at)).slice(0,3);
     return !signedIn()?`<p class="locked">🔒 Sign in to see this lodge's Trestle Board.</p>`:ps.length?`<div class="stack" style="padding:0;gap:10px">${ps.map(postCard).join("")}</div><button class="linkbtn" type="button" data-act="lodge-board" data-n="${l.n}">Open ${esc(lname(l))}'s Trestle Board</button>`:`<p class="hint">Nothing posted here yet. Lodge, District ${esc(l.d)} and Grand Lodge posts will show up here.</p>`})()}</div>`;
 }
@@ -1876,6 +1898,7 @@ function groupPage(g){
   return `${groupCrumbs(g)}<div class="panel detail"><div class="eyebrow">Trestle Board under ${esc(scopeName(par))}</div><h2 class="title">${esc(g.name)}</h2>${g.desc?`<p class="hint" style="margin:0 0 8px">${esc(g.desc)}</p>`:""}
   <div class="section"><h3 class="sub">Trestle Board</h3>${!seeRoster?`<p class="locked">🔒 Only people on this Trestle Board can see its posts.</p>`:ps.length?`<div class="stack" style="padding:0;gap:10px">${ps.map(postCard).join("")}</div>`:`<p class="hint">Nothing posted here yet. Posts here go to the people on this Trestle Board and show up on their own main Trestle Board.</p>`}${seeRoster?`<div class="actions" style="margin-top:10px"><button class="btn ghost small" type="button" data-act="group-board" data-id="${esc(g.id)}">Open ${esc(g.name)} Trestle Board</button></div>${canPost?"":`<p class="hint" style="margin:8px 0 0">Add yourself to this Trestle Board to post.</p>`}`:""}</div>
   ${subgroupList("g:"+g.id)}
+  ${auditBlock("g:"+g.id)}
   </div>${groupCard(g)}`}
 const grpMine=g=>g.members.includes(meP());
 function migrateGroups(){(S.groups||[]).forEach(g=>{if(!g.admins)g.admins=[g.members[g.members.length-1]].filter(Boolean);if(!g.requests)g.requests=[];if(g.scope===undefined)g.scope=""})}
@@ -2030,6 +2053,7 @@ document.addEventListener("click",e=>{
     case "body-sel":{const e=entById(t.dataset.bid);if(String(t.dataset.bid).startsWith("city:"))(S.cityOpen||(S.cityOpen={}))[t.dataset.bid.slice(5)]=true;if(e&&e.lvl){const o=S.srOpen||(S.srOpen={});entChain(e).slice(1).forEach(i=>o[i]=true);if(e.lvl!=="body")o[e.id]=true}}S.bodySel=t.dataset.bid;S.bodyOpen=true;render();scrollTo(0,0);break;
     case "group-open":{const g=gById(t.dataset.id);if(!g)break;S.tab="feed";S.feedTab="groups";S.grpPage=g.id;UI={editing:false,editProfile:false,adding:null,confirmDel:null,grpOpen:null};render();scrollTo(0,0);break}
     case "group-board":{const g=gById(t.dataset.id);if(!g)break;S.feedFilter="ag:"+g.id;if(boardsICanPost().some(b=>bKey(b)==="g:"+g.id))S.postTo="g:"+g.id;S.tab="feed";S.feedTab="feed";UI.editing=false;render();scrollTo(0,0);break}
+    case "audit-more":UI.auditMore=UI.auditMore===t.dataset.k?null:t.dataset.k;render();break;
     case "group-del-ask":UI.rmGrp=t.dataset.id;render();break;
     case "group-del-no":UI.rmGrp=null;render();break;
     case "mng-toggle":UI.mng=UI.mng===t.dataset.k?null:t.dataset.k;render();break;
@@ -2070,9 +2094,9 @@ document.addEventListener("click",e=>{
     case "welcome-ok":{S.welcomed=S.welcomed||{};S.welcomed[S.user]=1;render();break}
     case "signin":{S.user="mark";S.tab="feed";UI={editing:false,editProfile:false,adding:null,confirmDel:null};const ml=myLodges().filter(n=>n!==0);if(ml.length)S.sel=ml[0];if(me().profile)S.prof=me().profile;render();scrollTo(0,0);toast("Signed in as Mark (demo)");break}
     case "photo-remove":{saveAcct();const p=myProfile();ct(p,"photo").v="";logIt("removed their profile picture");render();break}
-    case "ent-join":{const pr=myProfile(),b=entById(t.dataset.bid);if(!pr||!b)break;if(!entMem(pr,b.id)){const now=new Date().toISOString();(pr.ents||(pr.ents=[])).push({id:b.id,since:"",pending:true,requested:now});settleFirstClaims();const x=entMem(pr,b.id);if(!x.pending){const a=(S.bodyFollows||(S.bodyFollows={}))[S.user]||(S.bodyFollows[S.user]=[]);if(!a.includes(b.id))a.push(b.id);logIt(`joined ${bodyTitle(b)}`);toast(`You are now listed as a member of ${bodyTitle(b)}`)}else{logIt(`asked to join ${bodyTitle(b)}`);toast(`Request sent. An officer of ${bodyTitle(b)} will approve it.`)}}render();break}
-    case "ent-leave":{const pr=myProfile(),b=entById(t.dataset.bid);if(!pr||!b)break;pr.ents=(pr.ents||[]).filter(x=>x.id!==b.id);logIt(`left ${bodyTitle(b)}`);toast(`Removed from ${bodyTitle(b)}`);render();break}
-    case "aff-request":{const pr=myProfile(),lo=byNum(+t.dataset.n);if(!pr||!lo)break;if(!pr.lodges.some(x=>x.n===lo.n)){pr.lodges.push({n:lo.n,since:"",pending:true,requested:new Date().toISOString()});logIt(`requested to affiliate with ${lname(lo)}`);toast(`Request sent to ${lname(lo)}`)}render();break}
+    case "ent-join":{const pr=myProfile(),b=entById(t.dataset.bid);if(!pr||!b)break;if(!entMem(pr,b.id)){const now=new Date().toISOString();(pr.ents||(pr.ents=[])).push({id:b.id,since:"",pending:true,requested:now});settleFirstClaims();const x=entMem(pr,b.id);if(!x.pending){const a=(S.bodyFollows||(S.bodyFollows={}))[S.user]||(S.bodyFollows[S.user]=[]);if(!a.includes(b.id))a.push(b.id);logIt(`joined ${bodyTitle(b)}`);audit("e:"+b.id,"joined the Trestle Board as a member");toast(`You are now listed as a member of ${bodyTitle(b)}`)}else{logIt(`asked to join ${bodyTitle(b)}`);audit("e:"+b.id,"asked to join as a member");toast(`Request sent. An officer of ${bodyTitle(b)} will approve it.`)}}render();break}
+    case "ent-leave":{const pr=myProfile(),b=entById(t.dataset.bid);if(!pr||!b)break;pr.ents=(pr.ents||[]).filter(x=>x.id!==b.id);logIt(`left ${bodyTitle(b)}`);audit("e:"+b.id,"left the member list");toast(`Removed from ${bodyTitle(b)}`);render();break}
+    case "aff-request":{const pr=myProfile(),lo=byNum(+t.dataset.n);if(!pr||!lo)break;if(!pr.lodges.some(x=>x.n===lo.n)){pr.lodges.push({n:lo.n,since:"",pending:true,requested:new Date().toISOString()});logIt(`requested to affiliate with ${lname(lo)}`);audit("l:"+lo.n,"asked to affiliate with the lodge");toast(`Request sent to ${lname(lo)}`)}render();break}
     case "req-approve":case "req-decline":{const key=t.dataset.key,pp=S.profiles[t.dataset.pid];if(!pp||!canApproveKey(key)||t.dataset.pid===meP()){toast("Only an officer with approval authority can do that");break}
       const ent=key[0]==="l"?lname(byNum(+key.slice(2))):bodyTitle(entById(key.slice(2)));
       const li=key[0]==="l"?pp.lodges.findIndex(x=>x.n===+key.slice(2)&&x.pending):-1,mine=(pp.claims||[]).filter(c=>c.key===key),ei=key[0]==="e"?(pp.ents||[]).findIndex(x=>x.id===key.slice(2)&&x.pending):-1;
@@ -2080,10 +2104,10 @@ document.addEventListener("click",e=>{
         if(ei>=0){const x=pp.ents[ei];delete x.pending;x.since=String(new Date().getFullYear());x.approvedBy=meP()||me().label;x.approvedAt=new Date().toISOString()}
         if(li>=0){const x=pp.lodges[li];delete x.pending;x.since=String(new Date().getFullYear());x.approvedBy=meP()||me().label;x.approvedAt=new Date().toISOString()}
         mine.forEach(c=>{const kind=c.kind;pp[kind].push({title:c.title,body:c.body,ref:c.ref,year:c.year})});
-        pp.claims=(pp.claims||[]).filter(c=>c.key!==key);logIt(`approved ${pp.name} at ${ent}`);toast(`Approved ${pp.name}`)}
-      else{if(li>=0)pp.lodges.splice(li,1);if(ei>=0)pp.ents.splice(ei,1);pp.claims=(pp.claims||[]).filter(c=>c.key!==key);logIt(`declined ${pp.name}'s request at ${ent}`);toast("Request declined")}
+        pp.claims=(pp.claims||[]).filter(c=>c.key!==key);logIt(`approved ${pp.name} at ${ent}`);audit(key,`approved ${pp.name} (${ent})`);toast(`Approved ${pp.name}`)}
+      else{if(li>=0)pp.lodges.splice(li,1);if(ei>=0)pp.ents.splice(ei,1);pp.claims=(pp.claims||[]).filter(c=>c.key!==key);logIt(`declined ${pp.name}'s request at ${ent}`);audit(key,`declined ${pp.name}'s request (${ent})`);toast("Request declined")}
       render();break}
-    case "pos-reset":{const key=t.dataset.key;if(!canManagePos(key))break;if(S.positions)delete S.positions[key];if(S.authority)delete S.authority[key];logIt("reset the positions list to the common set");toast("Positions reset");render();break}
+    case "pos-reset":{const key=t.dataset.key;if(!canManagePos(key))break;if(S.positions)delete S.positions[key];if(S.authority)delete S.authority[key];logIt("reset the positions list to the common set");audit(key,"reset the positions list to the common set");toast("Positions reset");render();break}
     case "follow":{const a=S.follows[S.user]||(S.follows[S.user]=[]);const i=a.indexOf(l.n);if(i>=0){a.splice(i,1);toast(`Unfollowed ${lname(l)}`)}else{a.push(l.n);toast(`Following ${lname(l)}`)}render();break}
     case "lodge-board":{const n=+t.dataset.n;S.feedFilter="at:"+n;const k=n===0?"gl":"l:"+n;if(boardsICanPost().some(b=>bKey(b)===k))S.postTo=k;S.tab="feed";UI.editing=false;render();scrollTo(0,0);break}
     case "feed-all":S.feedFilter="all";S.feedBoards=null;render();break;
@@ -2105,7 +2129,7 @@ document.addEventListener("click",e=>{
     case "open-bylaws":S.tab="bylaws";render();scrollTo(0,0);break
     case "by-back":S.tab="res";render();scrollTo(0,0);break
     case "bylaw-open":{const n=+t.dataset.n,l=byNum(n);if(!l||!canSeeBylaws(l))break;fget("bylaws:"+n).then(bl=>{if(!bl){toast("The file isn't in this browser. Ask the secretary to upload it again.");return}const u=URL.createObjectURL(bl),a=document.createElement("a");a.href=u;a.target="_blank";a.rel="noopener";document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),120000)}).catch(()=>toast("Couldn't open the file"));break}
-    case "bylaw-remove":{const n=+t.dataset.n,l=byNum(n);if(!l||!canEdit(l))break;fdel("bylaws:"+n).catch(()=>{});if(S.bylaws)delete S.bylaws[n];logIt(`removed the bylaws of ${lname(l)}`);toast("Bylaws removed");render();break}
+    case "bylaw-remove":{const n=+t.dataset.n,l=byNum(n);if(!l||!canEdit(l))break;fdel("bylaws:"+n).catch(()=>{});if(S.bylaws)delete S.bylaws[n];logIt(`removed the bylaws of ${lname(l)}`);audit("l:"+l.n,"removed the bylaws");toast("Bylaws removed");render();break}
     case "open-laws":S.tab="laws";S.lawOpen=null;S.lawMode=t.dataset.m||"art";render();scrollTo(0,0);break
     case "law-mode":S.lawMode=t.dataset.m;S.lawOpen=null;render();break
     case "law-open":S.tab="laws";S.lawOpen=t.dataset.n;render();scrollTo(0,0);break
@@ -2122,31 +2146,33 @@ document.addEventListener("click",e=>{
     case "add-ev-feed":UI.adding="cal";render();document.getElementById("ev-title")?.focus();break;
     case "post-from-cal":S.tab="feed";S.feedTab="feed";S.feedFilter="all";UI.adding=null;render();document.getElementById("post-text")?.focus();scrollTo(0,0);break;
     case "group-msg":{const g=myGroups().find(x=>x.id===t.dataset.id);if(!g)break;S.newMsg=true;S.newTo=g.members.filter(x=>x!==meP());S.msgGroup=g.name;S.msgFirst="";S.msgQ="";S.tab="messages";render();scrollTo(0,0);break}
-    case "group-del":{const g=(S.groups||[]).find(x=>x.id===t.dataset.id);if(!g||!grpManage(g))break;const gone=new Set([g.id,...gDesc(g).map(x=>x.id)]);S.groups=S.groups.filter(x=>!gone.has(x.id));S.posts=S.posts.filter(p=>!(p.board.t==="group"&&gone.has(p.board.id)));if(S.feedFilter.startsWith("ag:")&&gone.has(S.feedFilter.slice(3)))S.feedFilter="all";UI.rmGrp=null;toast("Removed "+g.name);S.grpPage=(g.scope&&g.scope.startsWith("g:")&&gById(g.scope.slice(2)))?g.scope.slice(2):null;UI.grpOpen=null;toast("Group deleted");render();break}
+    case "group-del":{const g=(S.groups||[]).find(x=>x.id===t.dataset.id);if(!g||!grpManage(g))break;const gone=new Set([g.id,...gDesc(g).map(x=>x.id)]);{const nd=gone.size-1;audit(g.scope||"",`removed the Trestle Board "${g.name}"${nd?` and the ${nd} Trestle Board${nd>1?"s":""} under it`:""}`);audit("g:"+g.id,`removed this Trestle Board${nd?` and the ${nd} under it`:""}`);gDesc(g).forEach(c=>audit("g:"+c.id,`this Trestle Board was removed along with "${g.name}"`))}S.groups=S.groups.filter(x=>!gone.has(x.id));S.posts=S.posts.filter(p=>!(p.board.t==="group"&&gone.has(p.board.id)));if(S.feedFilter.startsWith("ag:")&&gone.has(S.feedFilter.slice(3)))S.feedFilter="all";UI.rmGrp=null;toast("Removed "+g.name);S.grpPage=(g.scope&&g.scope.startsWith("g:")&&gById(g.scope.slice(2)))?g.scope.slice(2):null;UI.grpOpen=null;toast("Group deleted");render();break}
     case "grp-manage":UI.grpOpen=UI.grpOpen===t.dataset.id?null:t.dataset.id;render();break;
-    case "grp-leave":{const g=(S.groups||[]).find(x=>x.id===t.dataset.id);if(!g)break;const me_=meP();g.members=g.members.filter(x=>x!==me_);g.admins=(g.admins||[]).filter(x=>x!==me_);
-      if(!g.members.length)S.groups=S.groups.filter(x=>x.id!==g.id);else if(!g.admins.length)g.admins=[g.members[0]];toast("You left "+g.name);render();break}
-    case "grp-remove":{const g=(S.groups||[]).find(x=>x.id===t.dataset.id);if(!g||!grpManage(g))break;const id=t.dataset.pid;if(id===meP())break;g.members=g.members.filter(x=>x!==id);g.admins=(g.admins||[]).filter(x=>x!==id);toast("Removed");render();break}
+    case "grp-leave":{const g=(S.groups||[]).find(x=>x.id===t.dataset.id);if(!g)break;const me_=meP();g.members=g.members.filter(x=>x!==me_);g.admins=(g.admins||[]).filter(x=>x!==me_);audit("g:"+g.id,"left this Trestle Board");
+      if(g.members.length&&!g.admins.length)g.admins=[g.members[0]];toast("You left "+g.name);render();break}
+    case "grp-remove":{const g=(S.groups||[]).find(x=>x.id===t.dataset.id);if(!g||!grpManage(g))break;const id=t.dataset.pid;if(id===meP())break;g.members=g.members.filter(x=>x!==id);g.admins=(g.admins||[]).filter(x=>x!==id);audit("g:"+g.id,`removed ${pname(id)} from this Trestle Board`);toast("Removed");render();break}
     case "grp-admin":{const g=(S.groups||[]).find(x=>x.id===t.dataset.id);if(!g||!grpManage(g))break;const id=t.dataset.pid;
-      if(g.admins.includes(id)){if(g.admins.length<2){toast("A group needs at least one admin");break}g.admins=g.admins.filter(x=>x!==id)}else g.admins.push(id);render();break}
-    case "grp-req":{const g=(S.groups||[]).find(x=>x.id===t.dataset.id);if(!g||!meP()||grpMine(g))break;g.requests=g.requests||[];if(!g.requests.includes(meP()))g.requests.push(meP());toast("Request sent to the group's admins");render();break}
+      if(g.admins.includes(id)){if(g.admins.length<2){toast("A group needs at least one admin");break}g.admins=g.admins.filter(x=>x!==id);audit("g:"+g.id,`removed ${pname(id)} as an admin`)}else{g.admins.push(id);audit("g:"+g.id,`made ${pname(id)} an admin`)}render();break}
+    case "grp-req":{const g=(S.groups||[]).find(x=>x.id===t.dataset.id);if(!g||!meP()||grpMine(g))break;g.requests=g.requests||[];if(!g.requests.includes(meP()))g.requests.push(meP());audit("g:"+g.id,"asked to join this Trestle Board");toast("Request sent to the group's admins");render();break}
     case "grp-req-cancel":{const g=(S.groups||[]).find(x=>x.id===t.dataset.id);if(!g)break;g.requests=(g.requests||[]).filter(x=>x!==meP());render();break}
-    case "grp-approve":{const g=(S.groups||[]).find(x=>x.id===t.dataset.id);if(!g||!grpManage(g))break;const id=t.dataset.pid;g.requests=(g.requests||[]).filter(x=>x!==id);if(!g.members.includes(id))g.members.push(id);toast(pname(id)+" added");render();break}
-    case "grp-deny":{const g=(S.groups||[]).find(x=>x.id===t.dataset.id);if(!g||!grpManage(g))break;g.requests=(g.requests||[]).filter(x=>x!==t.dataset.pid);render();break}
+    case "grp-approve":{const g=(S.groups||[]).find(x=>x.id===t.dataset.id);if(!g||!grpManage(g))break;const id=t.dataset.pid;g.requests=(g.requests||[]).filter(x=>x!==id);if(!g.members.includes(id)){g.members.push(id);audit("g:"+g.id,`approved ${pname(id)} to join this Trestle Board`)}toast(pname(id)+" added");render();break}
+    case "grp-deny":{const g=(S.groups||[]).find(x=>x.id===t.dataset.id);if(!g||!grpManage(g))break;g.requests=(g.requests||[]).filter(x=>x!==t.dataset.pid);audit("g:"+g.id,`declined ${pname(t.dataset.pid)}'s request to join`);render();break}
     case "feed-reset":S.feedBoards=null;render();break;
-    case "del-post":S.posts=S.posts.filter(p=>p.id!==t.dataset.id);toast("Post deleted");render();break;
+    case "del-post":{const dp=S.posts.find(p=>p.id===t.dataset.id);if(dp){const w=who(dp.by);audit(postScope(dp.board),`deleted a post by ${w.name}`)}}S.posts=S.posts.filter(p=>p.id!==t.dataset.id);toast("Post deleted");render();break;
     case "res":toast(`${t.dataset.res} is planned`);break;
     case "off-set":{const l=byNum(S.sel);if(!l||!canEdit(l))break;const o=OFFICES[+t.dataset.i],pid=(document.getElementById("off-"+t.dataset.i)||{}).value||"";
       const typed=pid==="__manual"?((document.getElementById("offt-"+t.dataset.i)||{}).value||"").trim().replace(/\s+/g," "):"";
       if(pid==="__manual"&&!typed){toast("Type a name first, or choose Vacant");break}
       if(!S.manual)S.manual={};if(!S.manual[l.n])S.manual[l.n]={};
+      {const was=manualOf(l,o),holder=Object.entries(S.profiles).find(([,q])=>holds(q,"l:"+l.n).includes(o)),wasN=holder?holder[1].name:was;
+       audit("l:"+l.n,`set ${o} to ${pid&&pid!=="__manual"&&S.profiles[pid]?S.profiles[pid].name:typed?typed+" (typed name, not linked)":"vacant"}${wasN?` (was ${wasN})`:""}`)}
       S.manual[l.n][o]=typed;
       Object.values(S.profiles).forEach(p=>{p.current=(p.current||[]).filter(c=>!(String(c.title||"").trim()===o&&((c.ref&&refKey(c.ref)==="l:"+l.n)||lodgeRe(l).test(String(c.body||"")))))});
       if(pid&&pid!=="__manual"&&S.profiles[pid]){S.profiles[pid].current.unshift({title:o,body:`${l.name} Lodge No. ${l.n}`,ref:{t:"l",id:l.n},year:String(new Date().getFullYear())})}
       toast(pid?`${o} saved`:`${o} is now vacant`);render();break}
     case "add-anyway":{const w=UI.addWarn,l=w&&byNum(w.lodge);if(w&&l&&canEdit(l)){createMember(l,w.nm,w.em,w.dg,w.dt);UI.addWarn=null;toast(`${w.nm} added. Invitation emails go out once the site is live.`);render()}break}
     case "add-cancel":UI.addWarn=null;render();break;
-    case "app-ea":{const a=ensureApps().find(x=>x.id===t.dataset.id),l=a&&byNum(a.lodge);if(a&&l&&canEdit(l)){a.status="Initiated";if(S.profiles[a.pid])S.profiles[a.pid].degree="EA";toast(`${a.name} is now an Entered Apprentice`);render()}break}
+    case "app-ea":{const a=ensureApps().find(x=>x.id===t.dataset.id),l=a&&byNum(a.lodge);if(a&&l&&canEdit(l)){audit("l:"+l.n,`made ${a.name} an Entered Apprentice`);a.status="Initiated";if(S.profiles[a.pid])S.profiles[a.pid].degree="EA";toast(`${a.name} is now an Entered Apprentice`);render()}break}
     case "invite-resend":{const pp=S.profiles[t.dataset.id];if(pp&&pp.invited)toast("Invitation emails go out once the site is live");break}
     case "invite-cancel":{const pp=S.profiles[t.dataset.id],l=byNum(S.sel);if(pp&&pp.invited&&l&&canEdit(l)){delete S.profiles[t.dataset.id];S.apps=ensureApps().filter(x=>x.pid!==t.dataset.id);toast("Invitation canceled");render()}break}
     case "edit":UI.editing=true;render();break;
@@ -2156,7 +2182,7 @@ document.addEventListener("click",e=>{
     case "cancel-ev":UI.adding=null;render();break;
     case "ask-del":UI.confirmDel=t.dataset.id;render();break;
     case "keep-ev":UI.confirmDel=null;render();break;
-    case "del-ev":{const ev=S.events.find(x=>x.id===t.dataset.id);if(ev&&canEdit(byNum(ev.n))){S.events=S.events.filter(x=>x.id!==ev.id);S.posts=S.posts.filter(x=>x.evId!==ev.id);if(S.rsvps)delete S.rsvps[ev.id];logIt(`deleted "${ev.title}" from ${lname(byNum(ev.n))}'s calendar`);toast("Event deleted")}UI.confirmDel=null;render();break}
+    case "del-ev":{const ev=S.events.find(x=>x.id===t.dataset.id);if(ev&&canEdit(byNum(ev.n))){S.events=S.events.filter(x=>x.id!==ev.id);S.posts=S.posts.filter(x=>x.evId!==ev.id);if(S.rsvps)delete S.rsvps[ev.id];logIt(`deleted "${ev.title}" from ${lname(byNum(ev.n))}'s calendar`);audit(byNum(ev.n)&&byNum(ev.n).gl?"gl":"l:"+ev.n,`deleted the event "${ev.title}" (${ev.date})`);toast("Event deleted")}UI.confirmDel=null;render();break}
     case "prev":S.calM--;if(S.calM<0){S.calM=11;S.calY--}S.calDay=null;render();break;
     case "next":S.calM++;if(S.calM>11){S.calM=0;S.calY++}S.calDay=null;render();break;
     case "today":S.calY=today.getFullYear();S.calM=today.getMonth();S.calDay=TODAY;render();break;
@@ -2179,6 +2205,7 @@ document.addEventListener("submit",e=>{
     if(!l.gl&&can("mergeLodges")&&document.getElementById("f-status")) next.status=v("f-status");
     const changed=Object.keys(next).filter(k=>next[k]!==l[k]);
     S.edits[l.n]=Object.assign(S.edits[l.n]||{},next);
+    if(changed.length){const LB={name:"name",meet:"meeting",addr:"address",city:"city",d:"district",phone:"phone",email:"email",mail:"mailing address",web:"website",status:"status"},sh=v=>{v=String(v==null?"":v);return v?'"'+v.slice(0,60)+(v.length>60?"...":"")+'"':"(blank)"};audit(l.gl?"gl":"l:"+l.n,"changed "+changed.map(k=>`${LB[k]||k} from ${sh(l[k])} to ${sh(next[k])}`).join("; "))}
     if(changed.length) logIt(`edited ${lname(l)} (${changed.map(k=>({name:"name",meet:"meeting",addr:"address",city:"city",d:"district",phone:"phone",email:"email",mail:"mailing address",web:"website",status:"status"}[k])).join(", ")})`);
     if(next.meet&&!parseMeets(next.meet).length) toast("Saved. The meeting time isn't in a format the calendar can read.");
     else toast(changed.length?"Saved":"No changes");
@@ -2188,7 +2215,7 @@ document.addEventListener("submit",e=>{
     const n=+v("ev-lodge"), l=byNum(n); if(!canEdit(l)) return;
     const ev={id:"e"+Date.now().toString(36),n,title:v("ev-title"),type:v("ev-type"),date:v("ev-date"),time:v("ev-time"),vis:v("ev-vis"),notes:v("ev-notes")};
     if(!ev.title||!ev.date){toast("Add a title and date");return}
-    S.events.push(ev); logIt(`added "${ev.title}" to ${lname(l)}'s calendar`);
+    S.events.push(ev); logIt(`added "${ev.title}" to ${lname(l)}'s calendar`);audit(l.gl?"gl":"l:"+l.n,`added the event "${ev.title}" (${ev.date})`);
     S.posts.push({id:"p"+Date.now().toString(36)+"e",by:S.user,board:n===0?{t:"gl"}:{t:"lodge",id:n},text:`New event: ${ev.title}`,at:new Date().toISOString(),evId:ev.id});
     UI.adding=null; toast(`Added to ${l.name}'s calendar and Trestle Board`); render(); return;
   }
@@ -2212,14 +2239,14 @@ document.addEventListener("submit",e=>{
     const fd=new FormData(f),nm=(fd.get("name")||"").trim(),ds=(fd.get("desc")||"").trim();if(!nm){toast("Name the Trestle Board first");return}
     if(gKids(k).some(x=>x.name.toLowerCase()===nm.toLowerCase())){toast("There is already one with that name here");return}
     S.groups=S.groups||[];const id="g"+Date.now().toString(36)+Math.random().toString(36).slice(2,5),m=meP();S.groups.push({id,name:nm,desc:ds,scope:k,admins:m?[m]:[],members:m?[m]:[],requests:[]});
-    logIt(`built the Trestle Board ${nm}`);UI.mng=null;UI.editing=false;S.tab="feed";S.feedTab="groups";S.grpPage=id;UI.grpOpen=id;toast(`${nm} is built. Add its people under Manage.`);render();scrollTo(0,0);return}
+    logIt(`built the Trestle Board ${nm}`);audit(k,`built the Trestle Board "${nm}" under ${scopeName(k)}`);audit("g:"+id,`built this Trestle Board under ${scopeName(k)}`);UI.mng=null;UI.editing=false;S.tab="feed";S.feedTab="groups";S.grpPage=id;UI.grpOpen=id;toast(`${nm} is built. Add its people under Manage.`);render();scrollTo(0,0);return}
   if(f.id==="groupform"){const nm=(document.getElementById("group-name").value||"").trim(),sc=document.getElementById("group-scope").value,ds=(document.getElementById("group-desc").value||"").trim();
     if(!nm){toast("Name the group first");return}if(!myScopes().includes(sc)){toast("You can't start a group there");return}
     S.groups=S.groups||[];const id="g"+Date.now().toString(36);S.groups.push({id,name:nm,desc:ds,scope:sc,admins:[meP()],members:[meP()],requests:[]});UI.grpOpen=id;logIt(`started the group ${nm}`);toast("Group created. Add its people under Manage.");render();return}
   if(f.dataset.grpadd){const g=(S.groups||[]).find(x=>x.id===f.dataset.grpadd);if(!g||!grpManage(g))return;const nm=(new FormData(f).get("who")||"").trim().toLowerCase();
     const hit=Object.keys(S.profiles).filter(id=>pname(id).toLowerCase()===nm&&!g.members.includes(id));
     if(hit.length!==1){toast(hit.length?"More than one match. Use the full name from the list":"Pick a name from the list");return}
-    g.members.push(hit[0]);toast(`${pname(hit[0])} added`);render();return}
+    g.members.push(hit[0]);audit("g:"+g.id,`added ${pname(hit[0])} to this Trestle Board`);toast(`${pname(hit[0])} added`);render();return}
   if(f.id==="newmsg"){const to=[...(S.newTo||[])],txt=(document.getElementById("msg-first").value||"").trim();if(!to.length){toast("Pick at least one member");return}if(!txt){toast("Write a message first");return}
     ensureConvos();const m=meP(),mem=[m,...to];let c=to.length===1?S.convos.find(x=>!x.title&&x.members.length===2&&x.members.includes(to[0])&&x.members.includes(m)):null;
     if(!c){c={id:"c"+Date.now().toString(36),title:to.length>1?(document.getElementById("msg-group")?.value||"").trim():"",members:mem,msgs:[],read:{}};S.convos.push(c)}
@@ -2236,7 +2263,7 @@ document.addEventListener("submit",e=>{
     const auth=fd.getAll("auth").filter(x=>lines.includes(x));
     (S.positions||(S.positions={}))[key]=lines;
     if(auth.length)(S.authority||(S.authority={}))[key]=auth;else if(S.authority)delete S.authority[key];
-    logIt("updated the positions list");toast("Positions saved");render();return}
+    logIt("updated the positions list");audit(key,"updated the positions list");toast("Positions saved");render();return}
   if(f.dataset.add){
     const p=editTarget(); if(!p) return; const fd=new FormData(f); const kind=f.dataset.add;
     const a=(kind==="certs"?(fd.get("a")||""):(fd.get("a")==="__other"?(fd.get("a2")||""):(fd.get("a")||""))).trim(); if(!a){toast("Choose or type a title");return}
@@ -2252,12 +2279,12 @@ document.addEventListener("submit",e=>{
     if((p.claims||[]).some(c=>c.key===key&&c.title===a)){toast("You already have a request waiting for that");return}
     const member=!isL||p.lodges.some(x=>x.n===ref.id&&!x.pending);
     const taken=realProfiles().some(([id,q])=>q!==p&&holds(q,key).includes(a));
-    const queue=()=>{(p.claims||(p.claims=[])).push({key,kind,title:a,body:bv,ref,year,requested:now});if(isL&&!p.lodges.some(x=>x.n===ref.id))p.lodges.push({n:ref.id,since:"",pending:true,requested:now});logIt(`asked to be ${a} at ${bv}`);toast(`Request sent. An officer of ${bv} will approve it.`)};
+    const queue=()=>{(p.claims||(p.claims=[])).push({key,kind,title:a,body:bv,ref,year,requested:now});if(isL&&!p.lodges.some(x=>x.n===ref.id))p.lodges.push({n:ref.id,since:"",pending:true,requested:now});logIt(`asked to be ${a} at ${bv}`);audit(key,`asked to be ${a}`);toast(`Request sent. An officer of ${bv} will approve it.`)};
     if(!member){
-      if(!hasRealAuth(key)){p.lodges.push({n:ref.id,since:String(new Date().getFullYear()),approvedBy:"first claim",approvedAt:now});p[kind].push({title:a,body:bv,ref,year});logIt(`was first to claim ${a} at ${bv}`);toast(`You are the first to claim ${a} at ${bv}. Approved automatically.`)}
+      if(!hasRealAuth(key)){p.lodges.push({n:ref.id,since:String(new Date().getFullYear()),approvedBy:"first claim",approvedAt:now});p[kind].push({title:a,body:bv,ref,year});logIt(`was first to claim ${a} at ${bv}`);audit(key,`claimed ${a} (first claim, approved automatically)`);toast(`You are the first to claim ${a} at ${bv}. Approved automatically.`)}
       else queue();
     }else if(taken)queue();
-    else{p[kind].push({title:a,body:bv,ref,year});logIt(`claimed ${a} at ${bv}`);toast(hasRealAuth(key)?"Added":`You are the first to claim ${a}. Approved automatically.`)}
+    else{p[kind].push({title:a,body:bv,ref,year});logIt(`claimed ${a} at ${bv}`);audit(key,`claimed ${a}`);toast(hasRealAuth(key)?"Added":`You are the first to claim ${a}. Approved automatically.`)}
     render();return
   }
   if(f.id==="postform"){
@@ -2283,10 +2310,10 @@ document.addEventListener("change",e=>{
   if(t.dataset&&t.dataset.bylaw){const n=+t.dataset.bylaw,l=byNum(n),f=t.files&&t.files[0];t.value="";if(!l||!canEdit(l)||!f)return;
     if(!/pdf$/i.test(f.name)&&f.type!=="application/pdf"){toast("Please choose a PDF");return}
     if(f.size>15*1024*1024){toast("That file is over 15 MB");return}
-    fput("bylaws:"+n,f).then(()=>{(S.bylaws=S.bylaws||{})[n]={name:f.name,size:f.size,at:new Date().toISOString(),by:(myProfile()||{}).name||""};logIt(`uploaded the bylaws of ${lname(l)}`);toast("Bylaws saved");render()}).catch(()=>toast("This browser wouldn't store the file"));return}
+    fput("bylaws:"+n,f).then(()=>{(S.bylaws=S.bylaws||{})[n]={name:f.name,size:f.size,at:new Date().toISOString(),by:(myProfile()||{}).name||""};logIt(`uploaded the bylaws of ${lname(l)}`);audit("l:"+l.n,"uploaded the bylaws ("+f.name+")");toast("Bylaws saved");render()}).catch(()=>toast("This browser wouldn't store the file"));return}
   if(t.id==="dist"){S.dist=t.value;render();return}
   if(t.id==="drill-pick"){S.drillSlug=t.value;render();scrollTo(0,0);return}
-  if(t.classList&&t.classList.contains("app-status")){const a=ensureApps().find(x=>x.id===t.dataset.id),l=a&&byNum(a.lodge);if(a&&l&&canEdit(l)){a.status=t.value;toast(`${a.name}: ${t.value}`)}render();return}
+  if(t.classList&&t.classList.contains("app-status")){const a=ensureApps().find(x=>x.id===t.dataset.id),l=a&&byNum(a.lodge);if(a&&l&&canEdit(l)){audit("l:"+l.n,`changed ${a.name}'s petition status from ${a.status} to ${t.value}`);a.status=t.value;toast(`${a.name}: ${t.value}`)}render();return}
   if(t.id==="prof-degree"){const pp=S.profiles[t.dataset.pid];if(pp&&canSetDegree(t.dataset.pid)){const nl=pp.lodges.filter(x=>x.n&&!x.pending&&!(byNum(x.n)||{}).gl).length;if(t.value!=="MM"&&nl>1){toast(`${pp.name} is on ${nl} lodge rosters. An Entered Apprentice or Fellowcraft belongs to one lodge only, so fix that first.`)}else{pp.degree=t.value;toast(`${pp.name}: ${DTITLE[t.value]}`)}}render();return}
   if(t.id==="demo-degree"){const p=myProfile();if(p){p.degree=t.value}render();return}
   if(t.id==="post-photos"){const fs=[...t.files];t.value="";(async()=>{for(const f of fs){if(DRAFT.pics.length>=6){toast("Up to 6 photos per post");break}try{DRAFT.pics.push(await readPhoto(f))}catch(e){toast("That file isn't an image I can read")}}refreshAttach()})();return}
@@ -2322,7 +2349,7 @@ document.addEventListener("input",e=>{
   if(e.target.id==="mq"){S.mq=e.target.value;const pos=e.target.selectionStart;render();const i=document.getElementById("mq");i.focus();i.setSelectionRange(pos,pos);}
 });
 document.addEventListener("keydown",e=>{if(e.key==="Escape"){if(UI.menu){UI.menu=false;renderAcct()}if(UI.navMenu){UI.navMenu=null;tabs()}}});
-document.getElementById("reset").addEventListener("click",()=>{S=fresh();UI={editing:false,editProfile:false,adding:null,confirmDel:null};try{localStorage.removeItem(KEY)}catch(e){}render();toast("Demo reset")});
+document.getElementById("reset").addEventListener("click",()=>{const keepLog=S.audit;S=fresh();if(keepLog)S.audit=keepLog;UI={editing:false,editProfile:false,adding:null,confirmDel:null};try{localStorage.removeItem(KEY)}catch(e){}render();toast("Demo reset")});
 render();tlSplash();
 document.addEventListener("input",e=>{const t=e.target;if(t.id==="mon-q"){S.monQ=t.value;const r=document.getElementById("mon-res");if(r)r.innerHTML=monResults();return}if(t.classList&&t.classList.contains("poll-opt")&&DRAFT.poll)DRAFT.poll[+t.dataset.i]=t.value});
 </script>
